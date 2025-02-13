@@ -1,0 +1,20 @@
+{"time":"2025-02-13T14:02:44.6160697+03:00","level":"INFO","msg":"stream: starting","core version":"0.19.6","symlink path":"C:\\Users\\midas\\midas_model_experimental_umit\\time_series\\wandb\\run-20250213_140244-ogka7dhv\\logs\\debug-core.log"}
+{"time":"2025-02-13T14:02:44.7393831+03:00","level":"INFO","msg":"created new stream","id":"ogka7dhv"}
+{"time":"2025-02-13T14:02:44.7393831+03:00","level":"INFO","msg":"stream: started","id":"ogka7dhv"}
+{"time":"2025-02-13T14:02:44.7393831+03:00","level":"INFO","msg":"writer: Do: started","stream_id":"ogka7dhv"}
+{"time":"2025-02-13T14:02:44.7393831+03:00","level":"INFO","msg":"sender: started","stream_id":"ogka7dhv"}
+{"time":"2025-02-13T14:02:44.7393831+03:00","level":"INFO","msg":"handler: started","stream_id":"ogka7dhv"}
+{"time":"2025-02-13T14:02:44.7646848+03:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-02-13T14:02:44.8192802+03:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: input:3: Cannot query field \"createRunFiles\" on type \"Mutation\". Did you mean \"createInvite\", \"createRunQueue\", \"createEntity\", or \"createArtifactFiles\"?\n"}
+{"time":"2025-02-13T14:02:44.9388332+03:00","level":"ERROR","msg":"error getting latest commit","error":"exit status 128"}
+{"time":"2025-02-13T14:02:44.9990723+03:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: input:3: Cannot query field \"createRunFiles\" on type \"Mutation\". Did you mean \"createInvite\", \"createRunQueue\", \"createEntity\", or \"createArtifactFiles\"?\n"}
+{"time":"2025-02-13T14:02:45.2159259+03:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: input:3: Cannot query field \"createRunFiles\" on type \"Mutation\". Did you mean \"createInvite\", \"createRunQueue\", \"createEntity\", or \"createArtifactFiles\"?\n"}
+{"time":"2025-02-13T14:14:47.8263826+03:00","level":"INFO","msg":"stream: closing","id":"ogka7dhv"}
+{"time":"2025-02-13T14:14:47.8263826+03:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-02-13T14:14:47.8271195+03:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-02-13T14:14:47.896137+03:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: input:3: Cannot query field \"createRunFiles\" on type \"Mutation\". Did you mean \"createInvite\", \"createRunQueue\", \"createEntity\", or \"createArtifactFiles\"?\n"}
+{"time":"2025-02-13T14:14:47.8967414+03:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-02-13T14:14:47.904655+03:00","level":"INFO","msg":"handler: closed","stream_id":"ogka7dhv"}
+{"time":"2025-02-13T14:14:47.904655+03:00","level":"INFO","msg":"writer: Close: closed","stream_id":"ogka7dhv"}
+{"time":"2025-02-13T14:14:47.904655+03:00","level":"INFO","msg":"sender: closed","stream_id":"ogka7dhv"}
+{"time":"2025-02-13T14:14:47.904655+03:00","level":"INFO","msg":"stream: closed","id":"ogka7dhv"}

@@ -1,0 +1,11 @@
+{"time":"2025-02-13T14:19:58.0586825+03:00","level":"INFO","msg":"stream: starting","core version":"0.19.6","symlink path":"C:\\Users\\midas\\midas_model_experimental_umit\\time_series\\wandb\\run-20250213_141957-xu6zqp6h\\logs\\debug-core.log"}
+{"time":"2025-02-13T14:19:58.2844384+03:00","level":"INFO","msg":"created new stream","id":"xu6zqp6h"}
+{"time":"2025-02-13T14:19:58.2844384+03:00","level":"INFO","msg":"stream: started","id":"xu6zqp6h"}
+{"time":"2025-02-13T14:19:58.2844384+03:00","level":"INFO","msg":"handler: started","stream_id":"xu6zqp6h"}
+{"time":"2025-02-13T14:19:58.2844384+03:00","level":"INFO","msg":"sender: started","stream_id":"xu6zqp6h"}
+{"time":"2025-02-13T14:19:58.2844384+03:00","level":"INFO","msg":"writer: Do: started","stream_id":"xu6zqp6h"}
+{"time":"2025-02-13T14:19:58.3116662+03:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-02-13T14:19:58.3651979+03:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: input:3: Cannot query field \"createRunFiles\" on type \"Mutation\". Did you mean \"createInvite\", \"createRunQueue\", \"createEntity\", or \"createArtifactFiles\"?\n"}
+{"time":"2025-02-13T14:19:58.4820249+03:00","level":"ERROR","msg":"error getting latest commit","error":"exit status 128"}
+{"time":"2025-02-13T14:19:58.5433928+03:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: input:3: Cannot query field \"createRunFiles\" on type \"Mutation\". Did you mean \"createInvite\", \"createRunQueue\", \"createEntity\", or \"createArtifactFiles\"?\n"}
+{"time":"2025-02-13T14:19:58.7741299+03:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: input:3: Cannot query field \"createRunFiles\" on type \"Mutation\". Did you mean \"createInvite\", \"createRunQueue\", \"createEntity\", or \"createArtifactFiles\"?\n"}

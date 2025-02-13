@@ -9,11 +9,12 @@ model:
   type: "TCN"          # Choose "TCN" or "RCNN"
   num_inputs: 1        # Single voltage channel.
   #For TCN
-  num_channels: [16, 32, 64]   # Number of channels for each convolutional block.    
+  num_channels: [32, 64, 128]   # Number of channels for each convolutional block.    
+  dilation_base: 1.5
   # For RCNN:
   conv_channels: 16     # Number of channels for the initial convolution.
   kernel_size: 3
-  dropout: 0.2
+  dropout: 0.3
   rnn_hidden_size: 64
   num_rnn_layers: 1
   num_classes: 10       # For example: 10 persons

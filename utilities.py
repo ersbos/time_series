@@ -14,11 +14,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
 class SeismicDataset(Dataset):
     def __init__(self, data_dir, window_size, window_stride, transform=None):
         """
-        data_dir: Root folder with CSV files structured by person (e.g., person_one, person_two, etc.)
+        data_dir: Root folder with CSV files structured by person.
         window_size: The number of samples for each window segment.
         window_stride: The step size between successive windows.
         transform: Optional function to apply to each signal.
@@ -33,6 +32,9 @@ class SeismicDataset(Dataset):
         print("Detected classes and indices:", self.class_to_idx)
 
         self.segments = []
+        # Precompute and store labels alongside segments.
+        self.labels = []  # this will hold the label for each window segment
+
         for file_path in self.data_files:
             try:
                 data = pd.read_csv(file_path)
@@ -40,13 +42,20 @@ class SeismicDataset(Dataset):
             except Exception as e:
                 print(f"Error reading {file_path}: {e}")
                 continue
+
             n_samples = len(signal)
             if n_samples < self.window_size:
-                continue  # Skip files that are shorter than one window.
+                continue
+
             n_segments = (n_samples - self.window_size) // self.window_stride + 1
+            # Get the label now, without reading the CSV each time.
+            class_name = os.path.basename(os.path.dirname(file_path))
+            label = self.class_to_idx[class_name]
+
             for i in range(n_segments):
                 start = i * self.window_stride
                 self.segments.append((file_path, start))
+                self.labels.append(label)
 
     def __len__(self):
         return len(self.segments)
@@ -60,11 +69,11 @@ class SeismicDataset(Dataset):
         if self.transform:
             window_signal = self.transform(window_signal)
 
-        class_name = os.path.basename(os.path.dirname(file_path))
-        label = self.class_to_idx[class_name]
+        # Note: we don't need to recompute the label, use the precomputed one.
+        label = self.labels[idx]
+
         window_signal = torch.tensor(window_signal).unsqueeze(1)
         return window_signal, label
-
 
 def get_dataloaders(config):
     from torch.utils.data import random_split
@@ -81,18 +90,15 @@ def get_dataloaders(config):
                               shuffle=True, num_workers=8, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
                             shuffle=False, num_workers=8, pin_memory=True)
-
+    print("Dataloader is finished!")
     return train_loader, val_loader
 
 
 def train_model(model, train_loader, val_loader, config, device):
     # Compute class weights to address imbalance.
     train_indices = train_loader.dataset.indices
-    all_labels = []
-    # train_loader.dataset is a Subset so use its underlying dataset.
-    for i in train_indices:
-        _, label = train_loader.dataset.dataset[i]
-        all_labels.append(label)
+    all_labels = [train_loader.dataset.dataset.labels[i] for i in train_indices]
+
     counts = Counter(all_labels)
     max_count = max(counts.values())
     num_classes = len(counts)

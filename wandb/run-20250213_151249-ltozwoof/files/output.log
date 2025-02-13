@@ -1,0 +1,7 @@
+Wandb run name:  brisk-silence-24
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Dataloader is finished!
+Computed class weights: tensor([2.8139, 1.0629, 1.1473, 3.4429, 1.0000, 3.2731, 1.4783, 3.2235, 1.1980,
+        1.0539], device='cuda:0')
+Epoch [1/20] Batch [6470/6470] Loss: 6.1051 Batch Acc: 20.00%
+Epoch 1/20 finished: Train Loss: 2.2100, Val Loss: 2.0609, Val Accuracy: 0.2659

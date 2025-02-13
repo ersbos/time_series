@@ -1,0 +1,233 @@
+diff --git a/__pycache__/model.cpython-310.pyc b/__pycache__/model.cpython-310.pyc
+index e4c8a63..e8370eb 100644
+Binary files a/__pycache__/model.cpython-310.pyc and b/__pycache__/model.cpython-310.pyc differ
+diff --git a/__pycache__/networks.cpython-310.pyc b/__pycache__/networks.cpython-310.pyc
+index 240bce0..64ecab7 100644
+Binary files a/__pycache__/networks.cpython-310.pyc and b/__pycache__/networks.cpython-310.pyc differ
+diff --git a/__pycache__/utilities.cpython-310.pyc b/__pycache__/utilities.cpython-310.pyc
+index e026e5c..4a83f10 100644
+Binary files a/__pycache__/utilities.cpython-310.pyc and b/__pycache__/utilities.cpython-310.pyc differ
+diff --git a/config.yaml b/config.yaml
+index e55572a..3769983 100644
+--- a/config.yaml
++++ b/config.yaml
+@@ -9,11 +9,12 @@ model:
+   type: "TCN"          # Choose "TCN" or "RCNN"
+   num_inputs: 1        # Single voltage channel.
+   #For TCN
+-  num_channels: [16, 32, 64]   # Number of channels for each convolutional block.    
++  num_channels: [32, 64, 128]   # Number of channels for each convolutional block.    
++  dilation_base: 1.5
+   # For RCNN:
+   conv_channels: 16     # Number of channels for the initial convolution.
+   kernel_size: 3
+-  dropout: 0.2
++  dropout: 0.3
+   rnn_hidden_size: 64
+   num_rnn_layers: 1
+   num_classes: 10       # For example: 10 persons
+diff --git a/model.py b/model.py
+index 7f1f766..9d9e14a 100644
+--- a/model.py
++++ b/model.py
+@@ -29,7 +29,8 @@ def get_model(config):
+         kernel_size = config['model'].get('kernel_size', 2)
+         dropout = config['model'].get('dropout', 0.2)
+         num_classes = config['model']['num_classes']
+-        model = TCN(num_inputs, num_channels, kernel_size,dropout, num_classes)
++        dilation_base = config['model']['dilation_base']
++        model = TCN(num_inputs, num_channels, kernel_size,dilation_base,dropout, num_classes)
+     elif model_type == 'RCNN':
+         num_inputs = config['model']['num_inputs']
+         conv_channels = config['model']['conv_channels']
+diff --git a/networks.py b/networks.py
+index e17757e..e794a28 100644
+--- a/networks.py
++++ b/networks.py
+@@ -3,9 +3,6 @@ import torch.nn as nn
+ import torch.nn.functional as F
+ 
+ class Chomp1d(nn.Module):
+-    """
+-    Crops (or "chomps") the last 'chomp_size' elements from the time dimension.
+-    """
+     def __init__(self, chomp_size):
+         super(Chomp1d, self).__init__()
+         self.chomp_size = chomp_size
+@@ -17,12 +14,6 @@ class Chomp1d(nn.Module):
+ 
+ class TemporalBlock(nn.Module):
+     def __init__(self, in_channels, out_channels, kernel_size, stride, dilation, padding, dropout=0.2):
+-        """
+-        A single temporal block for the TCN.
+-        The 'padding' is chosen such that the convolution is causal.
+-        The extra timesteps added by the convolution are removed with a chomp.
+-        Batch normalization is applied after each convolution.
+-        """
+         super(TemporalBlock, self).__init__()
+         self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size,
+                                stride=stride, padding=padding, dilation=dilation)
+@@ -38,8 +29,8 @@ class TemporalBlock(nn.Module):
+         self.relu2 = nn.ReLU()
+         self.dropout2 = nn.Dropout(dropout)
+ 
+-        # Use a 1x1 convolution if the number of channels does not match for the residual connection.
+-        self.downsample = nn.Conv1d(in_channels, out_channels, kernel_size=1) if in_channels != out_channels else None
++        # 1x1 convolution for residual if needed.
++        self.downsample = nn.Conv1d(in_channels, out_channels, 1) if in_channels != out_channels else None
+         self.init_weights()
+ 
+     def init_weights(self):
+@@ -49,54 +40,53 @@ class TemporalBlock(nn.Module):
+             nn.init.kaiming_normal_(self.downsample.weight)
+ 
+     def forward(self, x):
+-        # First layer: conv1 -> chomp -> BatchNorm -> ReLU -> Dropout.
+         out = self.conv1(x)
+         out = self.chomp1(out)
+         out = self.bn1(out)
+         out = self.relu1(out)
+         out = self.dropout1(out)
+ 
+-        # Second layer: conv2 -> chomp -> BatchNorm -> ReLU -> Dropout.
+         out = self.conv2(out)
+         out = self.chomp2(out)
+         out = self.bn2(out)
+         out = self.relu2(out)
+         out = self.dropout2(out)
+ 
+-        # Residual connection: if shapes don't match, apply downsample.
+         res = x if self.downsample is None else self.downsample(x)
+         return F.relu(out + res)
+ 
+ class TCN(nn.Module):
+-    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2, num_classes=2):
++    def __init__(self, num_inputs, num_channels, kernel_size=3, dilation_base=1.5, dropout=0.2, num_classes=10):
+         """
+         num_inputs: Number of input channels.
+-        num_channels: List containing the number of channels for each convolutional layer.
++        num_channels: List with channels for each temporal block.
++        kernel_size: Convolution kernel size (small value suggested for short signals).
++        dilation_base: Base for computing dilation factors (smaller than 2 might be more suitable).
++        dropout: Dropout rate.
+         num_classes: Number of output classes.
+         """
+         super(TCN, self).__init__()
+         layers = []
+         num_levels = len(num_channels)
+         for i in range(num_levels):
+-            dilation_size = 2 ** i
++            # Using a less aggressive dilation progression
++            dilation = int(dilation_base ** i)
+             in_channels = num_inputs if i == 0 else num_channels[i - 1]
+             out_channels = num_channels[i]
+-            padding = (kernel_size - 1) * dilation_size
++            # Adjust padding so that the output length doesn't exceed input length.
++            padding = (kernel_size - 1) * dilation
+             layers.append(TemporalBlock(in_channels, out_channels, kernel_size,
+-                                          stride=1, dilation=dilation_size, padding=padding, dropout=dropout))
++                                          stride=1, dilation=dilation, padding=padding, dropout=dropout))
+         self.network = nn.Sequential(*layers)
+-        # Global average pooling over the temporal dimension.
+         self.fc = nn.Linear(num_channels[-1], num_classes)
+ 
+     def forward(self, x):
+-        # x shape: [batch, sequence_length, features]
+-        # Permute to [batch, features, sequence_length] as required by Conv1d layers.
++        # Permute input from [batch, time_steps, features] to [batch, features, time_steps]
+         x = x.permute(0, 2, 1)
+         y = self.network(x)
+         # Global average pooling over the temporal dimension.
+         y = torch.mean(y, dim=2)
+         return self.fc(y)
+-    
+ class RCNN(nn.Module):
+     def __init__(self, num_inputs, conv_channels, kernel_size=3, dropout=0.2, rnn_hidden_size=64,
+                  num_rnn_layers=1, num_classes=2):
+diff --git a/utilities.py b/utilities.py
+index 0c1a8b2..ed0d063 100644
+--- a/utilities.py
++++ b/utilities.py
+@@ -14,11 +14,10 @@ import numpy as np
+ import matplotlib.pyplot as plt
+ import seaborn as sns
+ 
+-
+ class SeismicDataset(Dataset):
+     def __init__(self, data_dir, window_size, window_stride, transform=None):
+         """
+-        data_dir: Root folder with CSV files structured by person (e.g., person_one, person_two, etc.)
++        data_dir: Root folder with CSV files structured by person.
+         window_size: The number of samples for each window segment.
+         window_stride: The step size between successive windows.
+         transform: Optional function to apply to each signal.
+@@ -33,6 +32,9 @@ class SeismicDataset(Dataset):
+         print("Detected classes and indices:", self.class_to_idx)
+ 
+         self.segments = []
++        # Precompute and store labels alongside segments.
++        self.labels = []  # this will hold the label for each window segment
++
+         for file_path in self.data_files:
+             try:
+                 data = pd.read_csv(file_path)
+@@ -40,13 +42,20 @@ class SeismicDataset(Dataset):
+             except Exception as e:
+                 print(f"Error reading {file_path}: {e}")
+                 continue
++
+             n_samples = len(signal)
+             if n_samples < self.window_size:
+-                continue  # Skip files that are shorter than one window.
++                continue
++
+             n_segments = (n_samples - self.window_size) // self.window_stride + 1
++            # Get the label now, without reading the CSV each time.
++            class_name = os.path.basename(os.path.dirname(file_path))
++            label = self.class_to_idx[class_name]
++
+             for i in range(n_segments):
+                 start = i * self.window_stride
+                 self.segments.append((file_path, start))
++                self.labels.append(label)
+ 
+     def __len__(self):
+         return len(self.segments)
+@@ -60,12 +69,12 @@ class SeismicDataset(Dataset):
+         if self.transform:
+             window_signal = self.transform(window_signal)
+ 
+-        class_name = os.path.basename(os.path.dirname(file_path))
+-        label = self.class_to_idx[class_name]
++        # Note: we don't need to recompute the label, use the precomputed one.
++        label = self.labels[idx]
++
+         window_signal = torch.tensor(window_signal).unsqueeze(1)
+         return window_signal, label
+ 
+-
+ def get_dataloaders(config):
+     from torch.utils.data import random_split
+     data_dir = config['data_dir']
+@@ -81,18 +90,15 @@ def get_dataloaders(config):
+                               shuffle=True, num_workers=8, pin_memory=True)
+     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
+                             shuffle=False, num_workers=8, pin_memory=True)
+-
++    print("Dataloader is finished!")
+     return train_loader, val_loader
+ 
+ 
+ def train_model(model, train_loader, val_loader, config, device):
+     # Compute class weights to address imbalance.
+     train_indices = train_loader.dataset.indices
+-    all_labels = []
+-    # train_loader.dataset is a Subset so use its underlying dataset.
+-    for i in train_indices:
+-        _, label = train_loader.dataset.dataset[i]
+-        all_labels.append(label)
++    all_labels = [train_loader.dataset.dataset.labels[i] for i in train_indices]
++
+     counts = Counter(all_labels)
+     max_count = max(counts.values())
+     num_classes = len(counts)

@@ -1,0 +1,22 @@
+diff --git a/__pycache__/model.cpython-310.pyc b/__pycache__/model.cpython-310.pyc
+index e4c8a63..8ce3148 100644
+Binary files a/__pycache__/model.cpython-310.pyc and b/__pycache__/model.cpython-310.pyc differ
+diff --git a/__pycache__/networks.cpython-310.pyc b/__pycache__/networks.cpython-310.pyc
+index 240bce0..16aba4f 100644
+Binary files a/__pycache__/networks.cpython-310.pyc and b/__pycache__/networks.cpython-310.pyc differ
+diff --git a/__pycache__/utilities.cpython-310.pyc b/__pycache__/utilities.cpython-310.pyc
+index e026e5c..578929f 100644
+Binary files a/__pycache__/utilities.cpython-310.pyc and b/__pycache__/utilities.cpython-310.pyc differ
+diff --git a/utilities.py b/utilities.py
+index 0c1a8b2..c56835a 100644
+--- a/utilities.py
++++ b/utilities.py
+@@ -81,7 +81,7 @@ def get_dataloaders(config):
+                               shuffle=True, num_workers=8, pin_memory=True)
+     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
+                             shuffle=False, num_workers=8, pin_memory=True)
+-
++    print("Dataloader is finished!")
+     return train_loader, val_loader
+ 
+ 

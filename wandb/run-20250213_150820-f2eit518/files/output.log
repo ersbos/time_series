@@ -1,0 +1,15 @@
+Wandb run name:  pleasant-glade-23
+Traceback (most recent call last):
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\train.py", line 53, in <module>
+    main()
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\train.py", line 44, in main
+    model = get_model(config).to(device)
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\model.py", line 32, in get_model
+    model = TCN(num_inputs, num_channels, kernel_size,dropout, num_classes)
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\networks.py", line 78, in __init__
+    layers.append(TemporalBlock(in_channels, out_channels, kernel_size,
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\networks.py", line 23, in __init__
+    self.dropout1 = nn.Dropout(dropout)
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\site-packages\torch\nn\modules\dropout.py", line 16, in __init__
+    raise ValueError("dropout probability has to be between 0 and 1, "
+ValueError: dropout probability has to be between 0 and 1, but got 10

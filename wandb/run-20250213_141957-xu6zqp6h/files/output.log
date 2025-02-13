@@ -1,0 +1,5 @@
+Wandb run name:  proud-silence-20
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Dataloader is finished!
+Computed class weights: tensor([2.8323, 1.0584, 1.1479, 3.4396, 1.0000, 3.2735, 1.4767, 3.2366, 1.1990,
+        1.0502], device='cuda:0')
