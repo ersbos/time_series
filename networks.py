@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Chomp1d(nn.Module):
+    """
+    Crops (or "chomps") the last 'chomp_size' elements from the time dimension.
+    """
     def __init__(self, chomp_size):
         super(Chomp1d, self).__init__()
         self.chomp_size = chomp_size
@@ -14,6 +17,12 @@ class Chomp1d(nn.Module):
 
 class TemporalBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, dilation, padding, dropout=0.2):
+        """
+        A single temporal block for the TCN.
+        The 'padding' is chosen such that the convolution is causal.
+        The extra timesteps added by the convolution are removed with a chomp.
+        Batch normalization is applied after each convolution.
+        """
         super(TemporalBlock, self).__init__()
         self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size,
                                stride=stride, padding=padding, dilation=dilation)
@@ -29,8 +38,8 @@ class TemporalBlock(nn.Module):
         self.relu2 = nn.ReLU()
         self.dropout2 = nn.Dropout(dropout)
 
-        # 1x1 convolution for residual if needed.
-        self.downsample = nn.Conv1d(in_channels, out_channels, 1) if in_channels != out_channels else None
+        # Use a 1x1 convolution if the number of channels does not match for the residual connection.
+        self.downsample = nn.Conv1d(in_channels, out_channels, kernel_size=1) if in_channels != out_channels else None
         self.init_weights()
 
     def init_weights(self):
@@ -40,48 +49,48 @@ class TemporalBlock(nn.Module):
             nn.init.kaiming_normal_(self.downsample.weight)
 
     def forward(self, x):
+        # First layer: conv1 -> chomp -> BatchNorm -> ReLU -> Dropout.
         out = self.conv1(x)
         out = self.chomp1(out)
         out = self.bn1(out)
         out = self.relu1(out)
         out = self.dropout1(out)
 
+        # Second layer: conv2 -> chomp -> BatchNorm -> ReLU -> Dropout.
         out = self.conv2(out)
         out = self.chomp2(out)
         out = self.bn2(out)
         out = self.relu2(out)
         out = self.dropout2(out)
 
+        # Residual connection: if shapes don't match, apply downsample.
         res = x if self.downsample is None else self.downsample(x)
         return F.relu(out + res)
 
 class TCN(nn.Module):
-    def __init__(self, num_inputs, num_channels, kernel_size=3, dilation_base=1.5, dropout=0.2, num_classes=10):
+    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2, num_classes=2):
         """
         num_inputs: Number of input channels.
-        num_channels: List with channels for each temporal block.
-        kernel_size: Convolution kernel size (small value suggested for short signals).
-        dilation_base: Base for computing dilation factors (smaller than 2 might be more suitable).
-        dropout: Dropout rate.
+        num_channels: List containing the number of channels for each convolutional layer.
         num_classes: Number of output classes.
         """
         super(TCN, self).__init__()
         layers = []
         num_levels = len(num_channels)
         for i in range(num_levels):
-            # Using a less aggressive dilation progression
-            dilation = int(dilation_base ** i)
+            dilation_size = 2 ** i
             in_channels = num_inputs if i == 0 else num_channels[i - 1]
             out_channels = num_channels[i]
-            # Adjust padding so that the output length doesn't exceed input length.
-            padding = (kernel_size - 1) * dilation
+            padding = (kernel_size - 1) * dilation_size
             layers.append(TemporalBlock(in_channels, out_channels, kernel_size,
-                                          stride=1, dilation=dilation, padding=padding, dropout=dropout))
+                                          stride=1, dilation=dilation_size, padding=padding, dropout=dropout))
         self.network = nn.Sequential(*layers)
+        # Global average pooling over the temporal dimension.
         self.fc = nn.Linear(num_channels[-1], num_classes)
 
     def forward(self, x):
-        # Permute input from [batch, time_steps, features] to [batch, features, time_steps]
+        # x shape: [batch, sequence_length, features]
+        # Permute to [batch, features, sequence_length] as required by Conv1d layers.
         x = x.permute(0, 2, 1)
         y = self.network(x)
         # Global average pooling over the temporal dimension.

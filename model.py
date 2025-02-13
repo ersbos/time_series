@@ -29,8 +29,7 @@ def get_model(config):
         kernel_size = config['model'].get('kernel_size', 2)
         dropout = config['model'].get('dropout', 0.2)
         num_classes = config['model']['num_classes']
-        dilation_base = config['model'].get('dilation_base',1.5)
-        model = TCN(num_inputs, num_channels, kernel_size,dilation_base,dropout, num_classes)
+        model = TCN(num_inputs, num_channels, kernel_size,dropout, num_classes)
     elif model_type == 'RCNN':
         num_inputs = config['model']['num_inputs']
         conv_channels = config['model']['conv_channels']

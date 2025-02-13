@@ -10,7 +10,6 @@ model:
   num_inputs: 1        # Single voltage channel.
   #For TCN
   num_channels: [16, 32, 64]   # Number of channels for each convolutional block.    
-  dilation_base: 1.5
   # For RCNN:
   conv_channels: 16     # Number of channels for the initial convolution.
   kernel_size: 3
