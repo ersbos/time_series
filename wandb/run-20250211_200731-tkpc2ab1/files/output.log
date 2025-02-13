@@ -1,0 +1,43 @@
+Wandb run name:  fiery-sun-24
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Traceback (most recent call last):
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 52, in <module>
+    main()
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 49, in main
+    train_model(model, train_loader, val_loader, config, device)
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\utilities.py", line 94, in train_model
+    for inputs, labels in train_loader:
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\dataloader.py", line 633, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\dataloader.py", line 677, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 51, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 51, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+            ~~~~~~~~~~~~^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\dataset.py", line 298, in __getitem__
+    return self.dataset[self.indices[idx]]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\utilities.py", line 52, in __getitem__
+    data = pd.read_csv(file_path)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\readers.py", line 1898, in _make_engine
+    return mapping[engine](f, **self.options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\c_parser_wrapper.py", line 93, in __init__
+    self._reader = parsers.TextReader(src, **kwds)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

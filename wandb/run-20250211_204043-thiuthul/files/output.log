@@ -1,0 +1,11 @@
+Wandb run name:  playful-pond-1
+Traceback (most recent call last):
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 52, in <module>
+    main()
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 43, in main
+    model = get_model(config).to(device)
+            ^^^^^^^^^^^^^^^^^
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\model.py", line 28, in get_model
+    num_channels = config['model']['num_channels']
+                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'num_channels'

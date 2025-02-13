@@ -1,0 +1,15 @@
+Wandb run name:  sandy-snowflake-8
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Error reading data\person_seven\person_7_sensor_1_speed_5_amplification_3_trace_3_with_headers.csv: Error tokenizing data. C error: Calling read(nbytes) on source failed. Try engine='python'.
+Traceback (most recent call last):
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\train.py", line 53, in <module>
+    main()
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\train.py", line 47, in main
+    train_loader, val_loader = get_dataloaders(config)
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\utilities.py", line 76, in get_dataloaders
+    dataset = SeismicDataset(data_dir, window_size, window_stride)
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\utilities.py", line 35, in __init__
+    data = pd.read_csv(file_path)
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+KeyboardInterrupt

@@ -1,0 +1,13 @@
+{"time":"2025-02-11T20:25:07.3029912+03:00","level":"INFO","msg":"main: starting server","port-filename":"C:\\Users\\umitc\\AppData\\Local\\Temp\\tmpvt439w8o\\port-8084.txt","pid":8084,"log-level":0,"disable-analytics":false,"shutdown-on-parent-exit":false}
+{"time":"2025-02-11T20:25:07.3104233+03:00","level":"INFO","msg":"Will exit if parent process dies.","ppid":8084}
+{"time":"2025-02-11T20:25:07.3104233+03:00","level":"INFO","msg":"server is running","addr":{"IP":"127.0.0.1","Port":52601,"Zone":""}}
+{"time":"2025-02-11T20:25:07.4121302+03:00","level":"INFO","msg":"connection: ManageConnectionData: new connection created","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:25:07.4892998+03:00","level":"INFO","msg":"handleInformInit: received","streamId":"vsc4b9ms","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:25:07.6123141+03:00","level":"INFO","msg":"handleInformInit: stream started","streamId":"vsc4b9ms","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:38:53.9900661+03:00","level":"INFO","msg":"handleInformTeardown: server teardown initiated","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:38:54.0124458+03:00","level":"INFO","msg":"server is shutting down"}
+{"time":"2025-02-11T20:38:54.01318+03:00","level":"INFO","msg":"connection: Close: initiating connection closure","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:38:54.0232625+03:00","level":"INFO","msg":"connection: Close: connection successfully closed","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:38:55.6809767+03:00","level":"INFO","msg":"handleInformTeardown: server shutdown complete","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:38:55.6815211+03:00","level":"INFO","msg":"connection: ManageConnectionData: connection closed","id":"127.0.0.1:52602"}
+{"time":"2025-02-11T20:38:55.6815211+03:00","level":"INFO","msg":"server is closed"}

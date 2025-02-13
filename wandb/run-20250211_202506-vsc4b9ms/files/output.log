@@ -1,0 +1,46 @@
+Wandb run name:  volcanic-yogurt-25
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Epoch [1/20] Batch [1681/26219] Loss: 2.1972 Batch Acc: 12.50%
+Traceback (most recent call last):
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 52, in <module>
+    main()
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 49, in main
+    train_model(model, train_loader, val_loader, config, device)
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\utilities.py", line 96, in train_model
+    for batch_idx, (inputs, labels) in enumerate(train_loader):
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\dataloader.py", line 633, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\dataloader.py", line 677, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 51, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 51, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+            ~~~~~~~~~~~~^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\utils\data\dataset.py", line 298, in __getitem__
+    return self.dataset[self.indices[idx]]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\utilities.py", line 53, in __getitem__
+    data = pd.read_csv(file_path)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\readers.py", line 626, in _read
+    return parser.read(nrows)
+           ^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\readers.py", line 1923, in read
+    ) = self._engine.read(  # type: ignore[attr-defined]
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\pandas\io\parsers\c_parser_wrapper.py", line 234, in read
+    chunks = self._reader.read_low_memory(nrows)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "parsers.pyx", line 838, in pandas._libs.parsers.TextReader.read_low_memory
+  File "parsers.pyx", line 905, in pandas._libs.parsers.TextReader._read_rows
+  File "parsers.pyx", line 874, in pandas._libs.parsers.TextReader._tokenize_rows
+  File "parsers.pyx", line 891, in pandas._libs.parsers.TextReader._check_tokenize_status
+  File "parsers.pyx", line 2061, in pandas._libs.parsers.raise_parser_error
+pandas.errors.ParserError: Error tokenizing data. C error: Calling read(nbytes) on source failed. Try engine='python'.

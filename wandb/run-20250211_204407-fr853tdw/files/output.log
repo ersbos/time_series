@@ -1,0 +1,29 @@
+Wandb run name:  different-moon-2
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Traceback (most recent call last):
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 52, in <module>
+    main()
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\train.py", line 49, in main
+    train_model(model, train_loader, val_loader, config, device)
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\utilities.py", line 100, in train_model
+    outputs = model(inputs)
+              ^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\nn\modules\module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\networks.py", line 64, in forward
+    y = self.network(x)
+        ^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\nn\modules\module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\nn\modules\container.py", line 217, in forward
+    input = module(input)
+            ^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\torch\nn\modules\module.py", line 1501, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\Bitirme Projesi\main\new simulation(data ambient person)\Bitirme-Projesi\time_series\networks.py", line 37, in forward
+    return F.relu(out + res)
+                  ~~~~^~~~~
+RuntimeError: The size of tensor a (260) must match the size of tensor b (256) at non-singleton dimension 2

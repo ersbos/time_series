@@ -1,0 +1,23 @@
+Wandb run name:  flowing-serenity-5
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Epoch [1/20] Batch [21/410] Loss: 18.7424 Batch Acc: 12.06% Data Time: 0.0000s, Comp Time: 0.0098s
+Traceback (most recent call last):
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\train.py", line 53, in <module>
+    main()
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\train.py", line 50, in main
+    train_model(model, train_loader, val_loader, config, device)
+  File "c:\Users\midas\midas_model_experimental_umit\time_series\utilities.py", line 101, in train_model
+    for batch_idx, (inputs, labels) in enumerate(train_loader):
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\site-packages\torch\utils\data\dataloader.py", line 634, in __next__
+    data = self._next_data()
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\site-packages\torch\utils\data\dataloader.py", line 1329, in _next_data
+    idx, data = self._get_data()
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\site-packages\torch\utils\data\dataloader.py", line 1285, in _get_data
+    success, data = self._try_get_data()
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\site-packages\torch\utils\data\dataloader.py", line 1133, in _try_get_data
+    data = self._data_queue.get(timeout=timeout)
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\queue.py", line 180, in get
+    self.not_empty.wait(remaining)
+  File "C:\Users\midas\anaconda3\envs\num_model\lib\threading.py", line 324, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt

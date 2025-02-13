@@ -1,0 +1,3 @@
+Wandb run name:  icy-lake-3
+Detected classes and indices: {'person_eight': 0, 'person_five': 1, 'person_four': 2, 'person_nine': 3, 'person_one': 4, 'person_seven': 5, 'person_six': 6, 'person_ten': 7, 'person_three': 8, 'person_two': 9}
+Epoch [1/20] Batch [2150/13110] Loss: 2.1907 Batch Acc: 10.94%

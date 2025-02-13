@@ -1,0 +1,6 @@
+{"time":"2025-02-11T20:50:59.7517779+03:00","level":"INFO","msg":"main: starting server","port-filename":"C:\\Users\\umitc\\AppData\\Local\\Temp\\tmpvpr73r9y\\port-16972.txt","pid":16972,"log-level":0,"disable-analytics":false,"shutdown-on-parent-exit":false}
+{"time":"2025-02-11T20:50:59.7571418+03:00","level":"INFO","msg":"Will exit if parent process dies.","ppid":16972}
+{"time":"2025-02-11T20:50:59.7571418+03:00","level":"INFO","msg":"server is running","addr":{"IP":"127.0.0.1","Port":53556,"Zone":""}}
+{"time":"2025-02-11T20:50:59.8908406+03:00","level":"INFO","msg":"connection: ManageConnectionData: new connection created","id":"127.0.0.1:53557"}
+{"time":"2025-02-11T20:50:59.9109732+03:00","level":"INFO","msg":"handleInformInit: received","streamId":"yu5xyb6a","id":"127.0.0.1:53557"}
+{"time":"2025-02-11T20:51:00.029268+03:00","level":"INFO","msg":"handleInformInit: stream started","streamId":"yu5xyb6a","id":"127.0.0.1:53557"}

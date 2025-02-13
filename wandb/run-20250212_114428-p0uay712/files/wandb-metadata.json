@@ -1,0 +1,37 @@
+{
+  "os":  "Windows-10-10.0.19045-SP0",
+  "python":  "CPython 3.10.16",
+  "startedAt":  "2025-02-12T08:44:28.522579Z",
+  "program":  "c:\\Users\\midas\\midas_model_experimental_umit\\time_series\\train.py",
+  "codePath":  "train.py",
+  "email":  "ucetinkaya@aselsan.com.tr",
+  "root":  "C:\\Users\\midas\\midas_model_experimental_umit\\time_series",
+  "host":  "DESKTOP-4TULEOC",
+  "executable":  "C:\\Users\\midas\\anaconda3\\envs\\num_model\\python.exe",
+  "codePathLocal":  "train.py",
+  "cpu_count":  10,
+  "cpu_count_logical":  20,
+  "gpu":  "Quadro P5000",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "1266406125568",
+      "used":  "606672265216"
+    }
+  },
+  "memory":  {
+    "total":  "34106908672"
+  },
+  "cpu":  {
+    "count":  10,
+    "countLogical":  20
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "Quadro P5000",
+      "memoryTotal":  "16106127360",
+      "architecture":  "Pascal"
+    }
+  ],
+  "cudaVersion":  "11.4"
+}

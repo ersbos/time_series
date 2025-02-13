@@ -1,0 +1,13 @@
+{"time":"2025-02-11T20:07:32.7075105+03:00","level":"INFO","msg":"main: starting server","port-filename":"C:\\Users\\umitc\\AppData\\Local\\Temp\\tmp7vyr5f2i\\port-2392.txt","pid":2392,"log-level":0,"disable-analytics":false,"shutdown-on-parent-exit":false}
+{"time":"2025-02-11T20:07:32.7128208+03:00","level":"INFO","msg":"Will exit if parent process dies.","ppid":2392}
+{"time":"2025-02-11T20:07:32.7128208+03:00","level":"INFO","msg":"server is running","addr":{"IP":"127.0.0.1","Port":51899,"Zone":""}}
+{"time":"2025-02-11T20:07:32.7638186+03:00","level":"INFO","msg":"connection: ManageConnectionData: new connection created","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:07:32.8765145+03:00","level":"INFO","msg":"handleInformInit: received","streamId":"tkpc2ab1","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:07:33.5296512+03:00","level":"INFO","msg":"handleInformInit: stream started","streamId":"tkpc2ab1","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:20:28.9456295+03:00","level":"INFO","msg":"handleInformTeardown: server teardown initiated","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:20:28.9743811+03:00","level":"INFO","msg":"server is shutting down"}
+{"time":"2025-02-11T20:20:28.9745303+03:00","level":"INFO","msg":"connection: Close: initiating connection closure","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:20:28.9845315+03:00","level":"INFO","msg":"connection: Close: connection successfully closed","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:20:31.3781037+03:00","level":"INFO","msg":"handleInformTeardown: server shutdown complete","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:20:31.3786439+03:00","level":"INFO","msg":"connection: ManageConnectionData: connection closed","id":"127.0.0.1:51900"}
+{"time":"2025-02-11T20:20:31.3786439+03:00","level":"INFO","msg":"server is closed"}
