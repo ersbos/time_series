@@ -6,7 +6,7 @@ window:
   stride: 256     # Step size between windows (allows overlap)
 
 model:
-  type: "TCN"          # Choose "TCN" or "RCNN"
+  type: "TS_CNN"          # Choose "TCN" or "RCNN" or "TS_CNN"
   num_inputs: 1        # Single voltage channel.
   #For TCN
   num_channels: [32, 64, 128]   # Number of channels for each convolutional block.    

@@ -128,3 +128,40 @@ class RCNN(nn.Module):
         out = torch.mean(rnn_out, dim=1)
         logits = self.fc(out)
         return logits
+
+
+class TimeSeriesCNN(nn.Module):
+    def __init__(self, num_inputs, num_classes):
+        """
+        A simple end-to-end convolutional classifier for time series.
+
+        Architecture:
+          - Conv1d with 64 filters, kernel size=8, padding=4 (to help preserve time dimension).
+          - BatchNorm1d and ReLU.
+          - Conv1d with 128 filters, kernel size=5, padding=2.
+          - BatchNorm1d and ReLU.
+          - Conv1d with 64 filters, kernel size=3, padding=1.
+          - BatchNorm1d and ReLU.
+          - Global average pooling over the time dimension.
+          - Fully connected layer mapping 64 channels to num_classes.
+        """
+        super(TimeSeriesCNN, self).__init__()
+        self.conv1 = nn.Conv1d(num_inputs, 64, kernel_size=8, padding=4)
+        self.bn1 = nn.BatchNorm1d(64)
+        self.conv2 = nn.Conv1d(64, 128, kernel_size=5, padding=2)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.conv3 = nn.Conv1d(128, 64, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm1d(64)
+        self.global_pool = nn.AdaptiveAvgPool1d(1)
+        self.fc = nn.Linear(64, num_classes)
+
+    def forward(self, x):
+        # Expect input x shape: [batch, time_steps, features]
+        # For univariate time series, features==1.
+        x = x.permute(0, 2, 1)  # convert to [batch, features, time_steps]
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.global_pool(x)  # shape [batch, 64, 1]
+        x = x.squeeze(2)         # shape [batch, 64]
+        return self.fc(x)
