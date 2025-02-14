@@ -1,4 +1,4 @@
-from networks import TCN, RCNN, TimeSeriesCNN
+from networks import TCN, RCNN, TimeSeriesCNN, LSTMNet
 
 def get_model(config):
     """
@@ -46,6 +46,14 @@ def get_model(config):
         num_inputs = config['model']['num_inputs']
         num_classes = config['model']['num_classes']
         model = TimeSeriesCNN(num_inputs, num_classes)
+    elif model_type == 'LSTM':
+        num_inputs = config['model']['num_inputs']
+        hidden_size = config['model'].get('hidden_size', 64)
+        num_layers = config['model'].get('num_layers', 1)
+        dropout = config['model'].get('dropout', 0.2)
+        bidirectional = config['model'].get('bidirectional', True)
+        num_classes = config['model']['num_classes']
+        model = LSTMNet(num_inputs, hidden_size, num_layers, num_classes, dropout, bidirectional)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 

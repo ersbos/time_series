@@ -165,3 +165,44 @@ class TimeSeriesCNN(nn.Module):
         x = self.global_pool(x)  # shape [batch, 64, 1]
         x = x.squeeze(2)         # shape [batch, 64]
         return self.fc(x)
+
+
+class LSTMNet(nn.Module):
+    def __init__(self, num_inputs, hidden_size, num_layers, num_classes, dropout=0.2, bidirectional=True):
+        """
+        A simple LSTM-based classifier for time series.
+
+        Architecture:
+          - LSTM (or stacked LSTM) reads in the sequence.
+          - The last hidden state is used as a representation.
+          - A fully connected layer maps the representation to num_classes.
+
+        Args:
+          num_inputs (int): Number of input features per time step.
+          hidden_size (int): Hidden size of the LSTM.
+          num_layers (int): Number of LSTM layers.
+          num_classes (int): Number of output classes.
+          dropout (float): Dropout rate to use between LSTM layers.
+          bidirectional (bool): If True, use a bidirectional LSTM.
+        """
+        super(LSTMNet, self).__init__()
+        self.lstm = nn.LSTM(input_size=num_inputs,
+                            hidden_size=hidden_size,
+                            num_layers=num_layers,
+                            batch_first=True,
+                            dropout=dropout if num_layers > 1 else 0,
+                            bidirectional=bidirectional)
+        lstm_out_size = hidden_size * 2 if bidirectional else hidden_size
+        self.fc = nn.Linear(lstm_out_size, num_classes)
+
+    def forward(self, x):
+        # x shape: [batch, time_steps, features]
+        lstm_out, (hn, cn) = self.lstm(x)
+        # Here we use the last layer's final hidden state.
+        if self.lstm.bidirectional:
+            # Concatenate the final forward and backward hidden states.
+            last_hidden = torch.cat((hn[-2], hn[-1]), dim=1)
+        else:
+            last_hidden = hn[-1]
+        logits = self.fc(last_hidden)
+        return logits

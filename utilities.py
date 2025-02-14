@@ -110,6 +110,10 @@ def train_model(model, train_loader, val_loader, config, device):
     optimizer = optim.Adam(model.parameters(), lr=config['training']['lr'])
     num_epochs = config['training']['epochs']
 
+    # Initialize lists for tracking losses
+    train_losses = []
+    val_losses = []
+
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -133,6 +137,7 @@ def train_model(model, train_loader, val_loader, config, device):
             sys.stdout.flush()
 
         epoch_train_loss = running_loss / len(train_loader.dataset)
+        train_losses.append(epoch_train_loss)
         wandb.log({'train_loss': epoch_train_loss, 'epoch': epoch})
 
         model.eval()
@@ -155,8 +160,12 @@ def train_model(model, train_loader, val_loader, config, device):
                 y_trues.extend(labels.cpu().numpy())
 
         epoch_val_loss = val_loss / len(val_loader.dataset)
+        val_losses.append(epoch_val_loss)
         val_accuracy = correct / total
-        wandb.log({'val_loss': epoch_val_loss, 'val_accuracy': val_accuracy, 'epoch': epoch})
+
+        # Log validation loss first (if desired)
+        wandb.log({'val_loss': epoch_val_loss, 'epoch': epoch})
+        wandb.log({'val_accuracy': val_accuracy, 'epoch': epoch})
 
         print(f"\nEpoch {epoch+1}/{num_epochs} finished: "
               f"Train Loss: {epoch_train_loss:.4f}, Val Loss: {epoch_val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
@@ -183,3 +192,17 @@ def train_model(model, train_loader, val_loader, config, device):
         # Log the image to wandb.
         wandb.log({"normalized_confusion_matrix": wandb.Image(fig), "epoch": epoch})
         plt.close(fig)
+
+        # Optionally, plot the combined training and validation loss curve.
+        plt.figure(figsize=(8, 6))
+        plt.plot(range(1, epoch+2), train_losses, label='Train Loss', marker='o')
+        plt.plot(range(1, epoch+2), val_losses, label='Val Loss', marker='o')
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.title("Training and Validation Loss")
+        plt.legend()
+        plt.tight_layout()
+
+        # Log the loss curve to wandb.
+        wandb.log({"loss_curve": wandb.Image(plt.gcf()), "epoch": epoch})
+        plt.close()  # Close the current figure to free up memory.

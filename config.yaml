@@ -17,7 +17,14 @@ model:
   dropout: 0.3
   rnn_hidden_size: 64
   num_rnn_layers: 1
-  num_classes: 10       # For example: 10 persons
+  num_classes: 10 # For example: 10 persons
+  #type: LSTM
+  #num_inputs: 1
+  #hidden_size: 64
+  #num_layers: 2
+  #dropout: 0.2
+  #bidirectional: true
+  #num_classes: 10
 
 training:
   batch_size: 64
