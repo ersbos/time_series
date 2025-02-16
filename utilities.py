@@ -14,27 +14,46 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from Footstep_detector import detect_step_events
+
 class SeismicDataset(Dataset):
-    def __init__(self, data_dir, window_size, window_stride, transform=None):
+    def __init__(self, data_dir, window_size, window_stride, transform=None,
+                 threshold_factor=3, noise_sigma=25.0):
         """
         data_dir: Root folder with CSV files structured by person.
-        window_size: The number of samples for each window segment.
+        window_size: The number of samples in each window segment.
         window_stride: The step size between successive windows.
-        transform: Optional function to apply to each signal.
+        transform: Optional function to apply to each signal window.
+        threshold_factor: Passed to detect_step_events; used for thresholding.
+        noise_sigma: Passed to detect_step_events; the assumed sensor noise level.
+
+        Labelation:
+          - For each CSV file, all windows are extracted uniformly using window_stride.
+          - The detect_step_events function is used on the full signal.
+          - Any window whose starting index is among the detected step indices is
+            labeled with the person’s label (from 0 to num_persons-1),
+            while all other windows will be labeled as noise (label = num_persons).
         """
         self.data_files = glob.glob(os.path.join(data_dir, '**', '*.csv'), recursive=True)
         self.window_size = window_size
         self.window_stride = window_stride
         self.transform = transform
+        self.threshold_factor = threshold_factor
+        self.noise_sigma = noise_sigma
 
+        # Get a sorted list of person classes from the folder names.
         self.class_names = sorted(list(set(os.path.basename(os.path.dirname(f)) for f in self.data_files)))
         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.class_names)}
-        print("Detected classes and indices:", self.class_to_idx)
+        print("Detected person classes and indices:", self.class_to_idx)
 
-        self.segments = []
-        # Precompute and store labels alongside segments.
-        self.labels = []  # this will hold the label for each window segment
+        # Define the noise class label as an extra category.
+        self.noise_label = len(self.class_names)
+        print("Noise class label index:", self.noise_label)
 
+        self.segments = []  # List of tuples: (file_path, start_index)
+        self.labels = []    # List of labels corresponding to each window
+
+        # Process each CSV file.
         for file_path in self.data_files:
             try:
                 data = pd.read_csv(file_path)
@@ -47,51 +66,49 @@ class SeismicDataset(Dataset):
             if n_samples < self.window_size:
                 continue
 
-            n_segments = (n_samples - self.window_size) // self.window_stride + 1
-            # Get the label now, without reading the CSV each time.
+            # Get the person label from the parent folder.
             class_name = os.path.basename(os.path.dirname(file_path))
-            label = self.class_to_idx[class_name]
+            person_label = self.class_to_idx[class_name]
 
+            # Run step detection (using the same window_size used for detection).
+            # detected_indices are the starting indices of windows in which a step was detected.
+            detected_indices = detect_step_events(signal,
+                                                  window_size=self.window_size,
+                                                  threshold_factor=self.threshold_factor,
+                                                  noise_sigma=self.noise_sigma)
+            detected_set = set(detected_indices)
+
+            # Uniformly generate segments using window_stride.
+            n_segments = (n_samples - self.window_size) // self.window_stride + 1
             for i in range(n_segments):
                 start = i * self.window_stride
                 self.segments.append((file_path, start))
-                self.labels.append(label)
+                # If the segment is one of the detected ones, assign the person label.
+                # Otherwise, assign the noise label.
+                if start in detected_set:
+                    self.labels.append(person_label)
+                else:
+                    self.labels.append(self.noise_label)
 
     def __len__(self):
         return len(self.segments)
 
     def __getitem__(self, idx):
         file_path, start_index = self.segments[idx]
-        data = pd.read_csv(file_path)
-        signal = data['voltage'].values.astype('float32')
-        window_signal = signal[start_index: start_index + self.window_size]
+        try:
+            data = pd.read_csv(file_path)
+            signal = data['voltage'].values.astype('float32')
+        except Exception as e:
+            raise RuntimeError(f"Error reading {file_path}: {e}")
 
+        window_signal = signal[start_index: start_index + self.window_size]
         if self.transform:
             window_signal = self.transform(window_signal)
 
-        # Note: we don't need to recompute the label, use the precomputed one.
+        # Convert window_signal to a tensor and add a channel dimension.
+        window_signal = torch.tensor(window_signal).unsqueeze(0)
         label = self.labels[idx]
-
-        window_signal = torch.tensor(window_signal).unsqueeze(1)
         return window_signal, label
-
-def get_dataloaders(config):
-    from torch.utils.data import random_split
-    data_dir = config['data_dir']
-    window_size = config['window']['size']
-    window_stride = config['window']['stride']
-
-    dataset = SeismicDataset(data_dir, window_size, window_stride)
-    train_size = int(config['data_split'] * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-
-    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
-                              shuffle=True, num_workers=8, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
-                            shuffle=False, num_workers=8, pin_memory=True)
-    print("Dataloader is finished!")
-    return train_loader, val_loader
 
 
 def train_model(model, train_loader, val_loader, config, device):
