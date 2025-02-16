@@ -110,6 +110,24 @@ class SeismicDataset(Dataset):
         label = self.labels[idx]
         return window_signal, label
 
+def get_dataloaders(config):
+    from torch.utils.data import random_split
+    data_dir = config['data_dir']
+    window_size = config['window']['size']
+    window_stride = config['window']['stride']
+
+    dataset = SeismicDataset(data_dir, window_size, window_stride)
+    train_size = int(config['data_split'] * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
+    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
+                              shuffle=True, num_workers=8, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
+                            shuffle=False, num_workers=8, pin_memory=True)
+    print("Dataloader is finished!")
+    return train_loader, val_loader
+
 
 def train_model(model, train_loader, val_loader, config, device):
     # Compute class weights to address imbalance.
