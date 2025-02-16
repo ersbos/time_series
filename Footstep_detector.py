@@ -34,7 +34,7 @@ def detect_step_events(signal_data, window_size=512, threshold_factor=3, noise_s
     mean_energy = noise_sigma ** 2
     std_energy = noise_sigma ** 2 * np.sqrt(2 / window_size)
     threshold = mean_energy + threshold_factor * std_energy
-    print(f"Using noise model: mean_energy = {mean_energy:.4f}, std_energy = {std_energy:.4f}, threshold = {threshold:.4f}")
+    #print(f"Using noise model: mean_energy = {mean_energy:.4f}, std_energy = {std_energy:.4f}, threshold = {threshold:.4f}")
 
     # If a window's energy exceeds the threshold, record the starting index of that window.
     for i, energy in enumerate(windowed_energy):

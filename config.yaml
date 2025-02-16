@@ -6,7 +6,7 @@ window:
   stride: 256     # Step size between windows (allows overlap)
 
 model:
-  type: "TS_CNN"          # Choose "TCN" or "RCNN" or "TS_CNN"
+  type: "TCN"          # Choose "TCN" or "RCNN" or "TS_CNN"
   num_inputs: 1        # Single voltage channel.
   #For TCN
   num_channels: [32, 64, 128]   # Number of channels for each convolutional block.    
@@ -17,7 +17,7 @@ model:
   dropout: 0.3
   rnn_hidden_size: 64
   num_rnn_layers: 1
-  num_classes: 10 # For example: 10 persons
+  num_classes: 11 # For example: 10 persons+ Noise
   #type: LSTM
   #num_inputs: 1
   #hidden_size: 64
@@ -36,4 +36,4 @@ wandb:
   project: "bitirme_time_series"
   host: http://192.168.21.122:8000//
   entity: ""  # Optional: your username or team name on wandb
-  note: "This run is for testing time series TCN model."
+  note: "This run is for testing time series TCN with new labeling model."

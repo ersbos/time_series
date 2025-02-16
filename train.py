@@ -28,8 +28,8 @@ def main():
     if wandb_config:
         wandb_api_key = wandb_config.get("api_key")
         if wandb_api_key:
-            wandb.login(key=wandb_api_key,
-                        host=wandb_host)
+            wandb.login(key=wandb_api_key,host=wandb_host
+                       )
             # Optionally, initialize the wandb run
             wandb.init(
                 project=wandb_config.get("project", "default_project"),

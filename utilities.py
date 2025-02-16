@@ -105,8 +105,8 @@ class SeismicDataset(Dataset):
         if self.transform:
             window_signal = self.transform(window_signal)
 
-        # Convert window_signal to a tensor and add a channel dimension.
-        window_signal = torch.tensor(window_signal).unsqueeze(0)
+        # Change here: add the channel dimension as the last dimension.
+        window_signal = torch.tensor(window_signal).unsqueeze(-1)  # Shape: [window_length, 1]
         label = self.labels[idx]
         return window_signal, label
 
