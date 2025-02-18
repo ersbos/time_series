@@ -7,6 +7,9 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
 import sys
+import torch.backends.cudnn as cudnn
+from torch.cuda.amp import autocast, GradScaler
+
 
 from collections import Counter
 from sklearn.metrics import confusion_matrix
@@ -15,6 +18,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from Footstep_detector import detect_step_events
+
+# Enable GPU optimizations
+cudnn.benchmark = True  
+scaler = GradScaler()
+
 
 class SeismicDataset(Dataset):
     def __init__(self, data_dir, window_size, window_stride, transform=None,
@@ -122,9 +130,9 @@ def get_dataloaders(config):
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
     train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
-                              shuffle=True, num_workers=8, pin_memory=True)
+                              shuffle=True, num_workers=6, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
-                            shuffle=False, num_workers=8, pin_memory=True)
+                            shuffle=False, num_workers=6, pin_memory=True)
     print("Dataloader is finished!")
     return train_loader, val_loader
 
@@ -138,10 +146,10 @@ def train_model(model, train_loader, val_loader, config, device):
     max_count = max(counts.values())
     num_classes = len(counts)
     weights_list = [max_count / counts[i] for i in range(num_classes)]
-    class_weights = torch.tensor(weights_list, dtype=torch.float32).to(device)
+    class_weights = torch.tensor(weights_list, dtype=torch.float32)
     print("Computed class weights:", class_weights)
 
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    criterion = nn.CrossEntropyLoss(weight=class_weights).to(device)
     optimizer = optim.Adam(model.parameters(), lr=config['training']['lr'])
     num_epochs = config['training']['epochs']
 
@@ -157,10 +165,13 @@ def train_model(model, train_loader, val_loader, config, device):
         for batch_idx, (inputs, labels) in enumerate(train_loader):
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
+            with autocast():
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             running_loss += loss.item() * inputs.size(0)
             _, predicted = torch.max(outputs.data, 1)
@@ -183,16 +194,17 @@ def train_model(model, train_loader, val_loader, config, device):
         y_trues = []
 
         with torch.no_grad():
-            for inputs, labels in val_loader:
-                inputs, labels = inputs.to(device), labels.to(device)
-                outputs = model(inputs)
-                batch_loss = criterion(outputs, labels)
-                val_loss += batch_loss.item() * inputs.size(0)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-                y_preds.extend(predicted.cpu().numpy())
-                y_trues.extend(labels.cpu().numpy())
+            with autocast():
+                for inputs, labels in val_loader:
+                    inputs, labels = inputs.to(device), labels.to(device)
+                    outputs = model(inputs)
+                    batch_loss = criterion(outputs, labels)
+                    val_loss += batch_loss.item() * inputs.size(0)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += labels.size(0)
+                    correct += (predicted == labels).sum().item()
+                    y_preds.extend(predicted.cpu().numpy())
+                    y_trues.extend(labels.cpu().numpy())
 
         epoch_val_loss = val_loss / len(val_loader.dataset)
         val_losses.append(epoch_val_loss)
@@ -212,9 +224,9 @@ def train_model(model, train_loader, val_loader, config, device):
 
         # Get class names from the dataset if available.
         if hasattr(train_loader.dataset.dataset, "class_names"):
-            class_names = train_loader.dataset.dataset.class_names
+            class_names = train_loader.dataset.dataset.class_names + ['noise']
         else:
-            class_names = [str(i) for i in range(num_classes)]
+            class_names = [str(i) for i in range(num_classes)] + ['noise']
 
         # Plot the normalized confusion matrix.
         fig, ax = plt.subplots(figsize=(8, 6))
