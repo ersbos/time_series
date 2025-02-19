@@ -87,6 +87,63 @@ class TCN(nn.Module):
         # Global average pooling over the temporal dimension.
         y = torch.mean(y, dim=2)
         return self.fc(y)
+
+
+class HybridTCN_LSTM(nn.Module):
+    def __init__(self, num_inputs, num_channels, kernel_size=3, dropout=0.2,
+                 num_classes=10, lstm_hidden_size=128, lstm_num_layers=1, dilation_base=1.5):
+        """
+        num_inputs: Number of input features per time step.
+        num_channels: List of output channels for each Temporal Block.
+        kernel_size: Convolution kernel size.
+        dropout: Dropout rate.
+        num_classes: Number of output classes.
+        lstm_hidden_size: Hidden size for the LSTM.
+        lstm_num_layers: Number of LSTM layers.
+        dilation_base: Base for computing dilation factors.
+
+        Note: The module accepts an input tensor of shape [batch, time_steps, features]
+        to maintain compatibility with your data loaders. Internally, it permutes
+        to the shape [batch, features, time_steps] needed for the TCN layers.
+        """
+        super(HybridTCN_LSTM, self).__init__()
+
+        # Build the TCN feature extractor.
+        tcn_layers = []
+        num_levels = len(num_channels)
+        for i in range(num_levels):
+            dilation = int(dilation_base ** i)
+            in_channels = num_inputs if i == 0 else num_channels[i - 1]
+            out_channels = num_channels[i]
+            padding = (kernel_size - 1) * dilation
+            tcn_layers.append(
+                TemporalBlock(in_channels, out_channels, kernel_size,
+                              stride=1, dilation=dilation, padding=padding, dropout=dropout)
+            )
+        self.tcn_net = nn.Sequential(*tcn_layers)
+
+        # LSTM takes feature sequences; its input size matches TCN's final output channels.
+        self.lstm = nn.LSTM(input_size=num_channels[-1], hidden_size=lstm_hidden_size,
+                            num_layers=lstm_num_layers, batch_first=True)
+
+        # Fully connected layer for classification.
+        self.fc = nn.Linear(lstm_hidden_size, num_classes)
+
+    def forward(self, x):
+        # Input x has shape [batch, time_steps, features] as expected by your loaders.
+        # Permute to [batch, features, time_steps] for the TCN.
+        tcn_input = x.permute(0, 2, 1)
+        tcn_out = self.tcn_net(tcn_input)
+        # Permute back to [batch, time_steps, features] so the LSTM receives proper sequence ordering.
+        lstm_input = tcn_out.permute(0, 2, 1)
+        # Process through the LSTM.
+        lstm_out, (h_n, _) = self.lstm(lstm_input)
+        # Use the hidden state from the last LSTM layer as a summary representation.
+        final_hidden = h_n[-1]
+        return self.fc(final_hidden)
+
+
+
 class RCNN(nn.Module):
     def __init__(self, num_inputs, conv_channels, kernel_size=3, dropout=0.2, rnn_hidden_size=64,
                  num_rnn_layers=1, num_classes=2):

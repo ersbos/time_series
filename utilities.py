@@ -19,6 +19,8 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import contextlib
+import io
 
 from Footstep_detector import detect_step_events
 
@@ -151,15 +153,14 @@ class SeismicDataset(Dataset):
 
 
 class EarlyStopping:
-    def __init__(self, patience=5, delta=0.0, verbose=False,
-                 save_path_pth=None, save_path_onnx=None, dummy_input=None, device="cpu"):
+    def __init__(self, patience=8, delta=0.001, verbose=False,
+                 base_save_path=None, dummy_input=None, device="cpu"):
         """
         Args:
             patience (int): How many epochs to wait after the last improvement before stopping.
             delta (float): Minimum improvement in the validation loss to be considered as an improvement.
-            verbose (bool): If True, prints a message for each validation loss improvement.
-            save_path_pth (str): File path to save the best model's state dict (.pth).
-            save_path_onnx (str): File path to export the best model in ONNX format (.onnx).
+            verbose (bool): If True, prints messages for each validation loss improvement.
+            base_save_path (str): Base folder path where checkpoint subfolders (per epoch) will be created.
             dummy_input (torch.Tensor): A valid dummy input tensor for exporting the model.
             device (str): The device on which dummy_input resides.
         """
@@ -170,28 +171,26 @@ class EarlyStopping:
         self.counter = 0
         self.early_stop = False
 
-        # Save-related parameters.
-        self.save_path_pth = save_path_pth
-        self.save_path_onnx = save_path_onnx
+        # Save-related parameters: using a base path to create subfolders per epoch.
+        self.base_save_path = base_save_path
         self.dummy_input = dummy_input.to(device) if dummy_input is not None else None
         self.device = device
 
-    def step(self, val_loss, model):
+    def step(self, epoch, val_loss, model):
         """
         Call this method after each epoch to update the early stopping counter.
-        If a new best loss is observed, save the model globally.
+        If a new best loss is observed, save the model inside the checkpoint folder for that epoch.
 
         Args:
+            epoch (int): The current epoch number (1-indexed).
             val_loss (float): The current epoch's validation loss.
             model (torch.nn.Module): The model to potentially save.
         """
-        # For the first call, set the best loss and save the model.
         if self.best_loss is None:
             self.best_loss = val_loss
-            save_model(model, self.save_path_pth, self.save_path_onnx, self.dummy_input, self.device, self.verbose)
+            save_model(model, self.base_save_path, epoch, self.dummy_input, self.device, self.verbose)
             if self.verbose:
-                print(f"Initial loss set to {val_loss:.6f} and model saved.")
-        # If the loss hasn't improved by at least delta, increment the counter.
+                print(f"Initial loss set to {val_loss:.6f} and model saved at epoch {epoch}.")
         elif val_loss > self.best_loss - self.delta:
             self.counter += 1
             if self.verbose:
@@ -199,13 +198,13 @@ class EarlyStopping:
                       f"No significant improvement (delta={self.delta}).")
             if self.counter >= self.patience:
                 self.early_stop = True
-        # If the validation loss improved sufficiently, reset the counter and save the model.
         else:
             if self.verbose:
-                print(f"Validation loss improved from {self.best_loss:.6f} to {val_loss:.6f}. Saving model and resetting counter.")
+                print(f"Validation loss improved from {self.best_loss:.6f} to {val_loss:.6f}. "
+                      f"Saving model at epoch {epoch} and resetting the counter.")
             self.best_loss = val_loss
             self.counter = 0
-            save_model(model, self.save_path_pth, self.save_path_onnx, self.dummy_input, self.device, self.verbose)
+            save_model(model, self.base_save_path, epoch, self.dummy_input, self.device, self.verbose)
 
 def get_dataloaders(config):
     from torch.utils.data import random_split
@@ -216,7 +215,7 @@ def get_dataloaders(config):
     # Pass the undersampling parameters from config if they exist.
     undersample_noise =  config['training']['undersample_noise']
     noise_sampling_ratio =  config['training']['noise_sampling_ratio']
-
+    number_of_workers = config['training']['number_of_workers']
     dataset = SeismicDataset(data_dir, window_size, window_stride,
                              undersample_noise=undersample_noise,
                              noise_sampling_ratio=noise_sampling_ratio)
@@ -225,44 +224,60 @@ def get_dataloaders(config):
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
     train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
-                              shuffle=True, num_workers=6, pin_memory=True)
+                              shuffle=True, num_workers=number_of_workers, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
-                            shuffle=False, num_workers=6, pin_memory=True)
+                            shuffle=False, num_workers=number_of_workers, pin_memory=True)
     print("Dataloader is finished!")
     return train_loader, val_loader
 
 
-def save_model(model, save_path_pth=None, save_path_onnx=None, dummy_input=None, device="cpu", verbose=False):
+def save_model(model, base_save_path, epoch, dummy_input=None, device="cpu", verbose=False):
     """
-    Saves the model in both .pth (PyTorch state_dict) and .onnx formats if respective paths are provided.
+    Saves the model in both .pth (PyTorch state_dict) and .onnx formats inside an epoch subfolder.
+    Diagnostic output from torch.onnx.export is captured and only printed in the event of an error.
 
     Args:
         model (torch.nn.Module): The PyTorch model to save.
-        save_path_pth (str): File path to save the model's state_dict (.pth).
-        save_path_onnx (str): File path to export the model in ONNX format (.onnx).
+        base_save_path (str): The base folder in which epoch subfolders will be created.
+        epoch (int): The current epoch number (1-indexed) to create a checkpoint folder.
         dummy_input (torch.Tensor): A valid dummy input tensor required for exporting the model to ONNX.
         device (str): The device on which dummy_input resides.
-        verbose (bool): If True, prints messages about the saving process.
+        verbose (bool): If True, prints messages about the saving process (when no errors occur).
     """
+    epoch_folder = os.path.join(base_save_path, f"epoch_{epoch}")
+    os.makedirs(epoch_folder, exist_ok=True)
+
     # Save the PyTorch checkpoint.
-    if save_path_pth is not None:
-        torch.save(model.state_dict(), save_path_pth)
-        if verbose:
-            print(f"Saved PyTorch model state dict to {save_path_pth}")
-    # Export model to ONNX.
-    if save_path_onnx is not None and dummy_input is not None:
-        model.eval()  # Ensure model is in evaluation mode for a stable export.
-        torch.onnx.export(
-            model,
-            dummy_input,
-            save_path_onnx,
-            export_params=True,
-            opset_version=11,
-            do_constant_folding=True,
-            input_names=["input"],
-            output_names=["output"],
-            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}}
-        )
+    save_path_pth = os.path.join(epoch_folder, "best_model.pth")
+    torch.save(model.state_dict(), save_path_pth)
+    if verbose:
+        print(f"Saved PyTorch model state dict to {save_path_pth}")
+
+    # Export model to ONNX with conditional output.
+    if dummy_input is not None:
+        model.eval()  # Ensure model is in evaluation mode for stability.
+        save_path_onnx = os.path.join(epoch_folder, "best_model.onnx")
+        output_buffer = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(output_buffer):
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    save_path_onnx,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=["input"],
+                    output_names=["output"],
+                    dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}}
+                )
+        except Exception as e:
+            # If an error occurs, print the captured output and the error.
+            captured_output = output_buffer.getvalue()
+            print("Error during ONNX export:")
+            print(captured_output)
+            raise e
+
         if verbose:
             print(f"Exported model to ONNX format at {save_path_onnx}")
 
@@ -281,13 +296,13 @@ def train_model(model, train_loader, val_loader, config, device):
 
     criterion = nn.CrossEntropyLoss(weight=class_weights).to(device)
     optimizer = optim.Adam(model.parameters(), lr=config['training']['lr'])
-
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+    factor = config['training']['factor']
+    scheduler_patience = config['training']['patience']
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor, patience=scheduler_patience)
 
     num_epochs = config['training']['epochs']
-    save_path = config['saving']['path']
-    save_path_pth = save_path +  "best_model.pth"
-    save_path_onnx = save_path + "best_model.onnx"
+    base_save_path = config['saving']['path']
+
     train_losses = []   # Initialize lists for tracking losses
     val_losses = []
     num_inputs = num_inputs = config['model']['num_inputs']  # This should match the num_inputs used during model initialization.
@@ -296,12 +311,13 @@ def train_model(model, train_loader, val_loader, config, device):
 
     dummy_input = torch.randn(batch_size, time_steps, num_inputs).to(device)
 
+    patience = config["early_stopping"]["patience"]
+    delta = config["early_stopping"]["delta"]
     early_stopping = EarlyStopping(
-            patience=5,
-            delta=0.001,
+            patience=patience,
+            delta=delta,
             verbose=True,
-            save_path_pth= save_path_pth,
-            save_path_onnx=save_path_onnx,
+            base_save_path=base_save_path,
             dummy_input=dummy_input,
             device=device
         )
@@ -403,14 +419,13 @@ def train_model(model, train_loader, val_loader, config, device):
         # Log the loss curve to wandb.
         wandb.log({"loss_curve": wandb.Image(plt.gcf()), "epoch": epoch})
         plt.close()  # Close the current figure to free up memory.
-        early_stopping.step(epoch_val_loss, model)
+        early_stopping.step(epoch,epoch_val_loss, model)
         if early_stopping.early_stop:
             print(f"\nEarly stopping triggered at epoch {epoch+1}.")
             break
 
     save_model(model,
-           save_path_pth=save_path_pth,
-           save_path_onnx=save_path_pth,
+           base_save_path=base_save_path,
            dummy_input=dummy_input,
            device=device,
            verbose=True)

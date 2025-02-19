@@ -1,4 +1,4 @@
-from networks import TCN, RCNN, TimeSeriesCNN, LSTMNet
+from networks import TCN, RCNN, TimeSeriesCNN, LSTMNet, HybridTCN_LSTM
 
 def get_model(config):
     """
@@ -31,6 +31,17 @@ def get_model(config):
         num_classes = config['model']['num_classes']
         dilation_base = config['model']['dilation_base']
         model = TCN(num_inputs, num_channels, kernel_size, dilation_base, dropout, num_classes)
+    elif model_type== "HybridTCN_LSTM":
+        num_inputs = config['model']['num_inputs']
+        num_channels = config['model']['num_channels']
+        kernel_size = config['model'].get('kernel_size', 2)
+        dropout = config['model'].get('dropout', 0.2)
+        num_classes = config['model']['num_classes']
+        lstm_hidden_size= config['model']['lstm_hidden_size']
+        lstm_num_layers= config['model']['lstm_num_layers']
+        dilation_base = config['model']['dilation_base']
+        model = HybridTCN_LSTM(num_inputs,num_channels,kernel_size,dropout,num_classes,
+                               lstm_hidden_size,lstm_num_layers,dilation_base)
     elif model_type == 'RCNN':
         num_inputs = config['model']['num_inputs']
         conv_channels = config['model']['conv_channels']
