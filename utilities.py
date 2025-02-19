@@ -1,3 +1,5 @@
+import torch
+import torch.onnx
 import os
 import glob
 import pandas as pd
@@ -9,6 +11,7 @@ import torch.optim as optim
 import sys
 import torch.backends.cudnn as cudnn
 from torch.cuda.amp import autocast, GradScaler
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 from collections import Counter
@@ -26,7 +29,8 @@ scaler = GradScaler()
 
 class SeismicDataset(Dataset):
     def __init__(self, data_dir, window_size, window_stride, transform=None,
-                 threshold_factor=3, noise_sigma=25.0):
+                 threshold_factor=3, noise_sigma=25.0,
+                 undersample_noise=1, noise_sampling_ratio=1.0):
         """
         data_dir: Root folder with CSV files structured by person.
         window_size: The number of samples in each window segment.
@@ -34,6 +38,11 @@ class SeismicDataset(Dataset):
         transform: Optional function to apply to each signal window.
         threshold_factor: Passed to detect_step_events; used for thresholding.
         noise_sigma: Passed to detect_step_events; the assumed sensor noise level.
+
+        undersample_noise: Boolean, if True will randomly drop noise segments.
+        noise_sampling_ratio: The desired ratio between the number of noise segments
+                              and the number of step (non-noise) segments.
+                              E.g. 1.0 means a 1:1 ratio; default is 1.0.
 
         Labelation:
           - For each CSV file, all windows are extracted uniformly using window_stride.
@@ -48,6 +57,8 @@ class SeismicDataset(Dataset):
         self.transform = transform
         self.threshold_factor = threshold_factor
         self.noise_sigma = noise_sigma
+        self.undersample_noise = undersample_noise
+        self.noise_sampling_ratio = noise_sampling_ratio
 
         # Get a sorted list of person classes from the folder names.
         self.class_names = sorted(list(set(os.path.basename(os.path.dirname(f)) for f in self.data_files)))
@@ -98,6 +109,26 @@ class SeismicDataset(Dataset):
                 else:
                     self.labels.append(self.noise_label)
 
+        # Perform undersampling of noise segments if requested.
+        if self.undersample_noise == 1:
+            # Indices for non-noise (step) and noise windows.
+            step_indices = [i for i, label in enumerate(self.labels) if label != self.noise_label]
+            noise_indices = [i for i, label in enumerate(self.labels) if label == self.noise_label]
+            print(f"Before undersampling: {len(step_indices)} step segments, {len(noise_indices)} noise segments.")
+
+            # Determine the desired number of noise segments.
+            desired_noise_count = int(len(step_indices) * self.noise_sampling_ratio)
+            if len(noise_indices) > desired_noise_count:
+                # Randomly sample the desired number of noise indices.
+                sampled_noise_indices = np.random.choice(noise_indices, desired_noise_count, replace=False).tolist()
+                # Combine the selected step and noise segments, preserving the original order.
+                selected_indices = sorted(step_indices + sampled_noise_indices)
+                self.segments = [self.segments[i] for i in selected_indices]
+                self.labels = [self.labels[i] for i in selected_indices]
+                print(f"After undersampling: {len(step_indices)} step segments, {desired_noise_count} noise segments.")
+            else:
+                print("Noise segments are fewer than or equal to the undersampling target; no undersampling applied.")
+
     def __len__(self):
         return len(self.segments)
 
@@ -113,10 +144,68 @@ class SeismicDataset(Dataset):
         if self.transform:
             window_signal = self.transform(window_signal)
 
-        # Change here: add the channel dimension as the last dimension.
+        # Add the channel dimension as the last dimension.
         window_signal = torch.tensor(window_signal).unsqueeze(-1)  # Shape: [window_length, 1]
         label = self.labels[idx]
         return window_signal, label
+
+
+class EarlyStopping:
+    def __init__(self, patience=5, delta=0.0, verbose=False,
+                 save_path_pth=None, save_path_onnx=None, dummy_input=None, device="cpu"):
+        """
+        Args:
+            patience (int): How many epochs to wait after the last improvement before stopping.
+            delta (float): Minimum improvement in the validation loss to be considered as an improvement.
+            verbose (bool): If True, prints a message for each validation loss improvement.
+            save_path_pth (str): File path to save the best model's state dict (.pth).
+            save_path_onnx (str): File path to export the best model in ONNX format (.onnx).
+            dummy_input (torch.Tensor): A valid dummy input tensor for exporting the model.
+            device (str): The device on which dummy_input resides.
+        """
+        self.patience = patience
+        self.delta = delta
+        self.verbose = verbose
+        self.best_loss = None
+        self.counter = 0
+        self.early_stop = False
+
+        # Save-related parameters.
+        self.save_path_pth = save_path_pth
+        self.save_path_onnx = save_path_onnx
+        self.dummy_input = dummy_input.to(device) if dummy_input is not None else None
+        self.device = device
+
+    def step(self, val_loss, model):
+        """
+        Call this method after each epoch to update the early stopping counter.
+        If a new best loss is observed, save the model globally.
+
+        Args:
+            val_loss (float): The current epoch's validation loss.
+            model (torch.nn.Module): The model to potentially save.
+        """
+        # For the first call, set the best loss and save the model.
+        if self.best_loss is None:
+            self.best_loss = val_loss
+            save_model(model, self.save_path_pth, self.save_path_onnx, self.dummy_input, self.device, self.verbose)
+            if self.verbose:
+                print(f"Initial loss set to {val_loss:.6f} and model saved.")
+        # If the loss hasn't improved by at least delta, increment the counter.
+        elif val_loss > self.best_loss - self.delta:
+            self.counter += 1
+            if self.verbose:
+                print(f"EarlyStopping counter: {self.counter} / {self.patience}. "
+                      f"No significant improvement (delta={self.delta}).")
+            if self.counter >= self.patience:
+                self.early_stop = True
+        # If the validation loss improved sufficiently, reset the counter and save the model.
+        else:
+            if self.verbose:
+                print(f"Validation loss improved from {self.best_loss:.6f} to {val_loss:.6f}. Saving model and resetting counter.")
+            self.best_loss = val_loss
+            self.counter = 0
+            save_model(model, self.save_path_pth, self.save_path_onnx, self.dummy_input, self.device, self.verbose)
 
 def get_dataloaders(config):
     from torch.utils.data import random_split
@@ -124,7 +213,13 @@ def get_dataloaders(config):
     window_size = config['window']['size']
     window_stride = config['window']['stride']
 
-    dataset = SeismicDataset(data_dir, window_size, window_stride)
+    # Pass the undersampling parameters from config if they exist.
+    undersample_noise =  config['training']['undersample_noise']
+    noise_sampling_ratio =  config['training']['noise_sampling_ratio']
+
+    dataset = SeismicDataset(data_dir, window_size, window_stride,
+                             undersample_noise=undersample_noise,
+                             noise_sampling_ratio=noise_sampling_ratio)
     train_size = int(config['data_split'] * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
@@ -135,6 +230,41 @@ def get_dataloaders(config):
                             shuffle=False, num_workers=6, pin_memory=True)
     print("Dataloader is finished!")
     return train_loader, val_loader
+
+
+def save_model(model, save_path_pth=None, save_path_onnx=None, dummy_input=None, device="cpu", verbose=False):
+    """
+    Saves the model in both .pth (PyTorch state_dict) and .onnx formats if respective paths are provided.
+
+    Args:
+        model (torch.nn.Module): The PyTorch model to save.
+        save_path_pth (str): File path to save the model's state_dict (.pth).
+        save_path_onnx (str): File path to export the model in ONNX format (.onnx).
+        dummy_input (torch.Tensor): A valid dummy input tensor required for exporting the model to ONNX.
+        device (str): The device on which dummy_input resides.
+        verbose (bool): If True, prints messages about the saving process.
+    """
+    # Save the PyTorch checkpoint.
+    if save_path_pth is not None:
+        torch.save(model.state_dict(), save_path_pth)
+        if verbose:
+            print(f"Saved PyTorch model state dict to {save_path_pth}")
+    # Export model to ONNX.
+    if save_path_onnx is not None and dummy_input is not None:
+        model.eval()  # Ensure model is in evaluation mode for a stable export.
+        torch.onnx.export(
+            model,
+            dummy_input,
+            save_path_onnx,
+            export_params=True,
+            opset_version=11,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}}
+        )
+        if verbose:
+            print(f"Exported model to ONNX format at {save_path_onnx}")
 
 
 def train_model(model, train_loader, val_loader, config, device):
@@ -151,11 +281,30 @@ def train_model(model, train_loader, val_loader, config, device):
 
     criterion = nn.CrossEntropyLoss(weight=class_weights).to(device)
     optimizer = optim.Adam(model.parameters(), lr=config['training']['lr'])
-    num_epochs = config['training']['epochs']
 
-    # Initialize lists for tracking losses
-    train_losses = []
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+
+    num_epochs = config['training']['epochs']
+    save_path = config['saving']['path']
+    save_path_pth = save_path +  "best_model.pth"
+    save_path_onnx = save_path + "best_model.onnx"
+    train_losses = []   # Initialize lists for tracking losses
     val_losses = []
+    num_inputs = num_inputs = config['model']['num_inputs']  # This should match the num_inputs used during model initialization.
+    batch_size = config["training"]["batch_size"]
+    time_steps = config["window"]["size"]
+
+    dummy_input = torch.randn(batch_size, time_steps, num_inputs).to(device)
+
+    early_stopping = EarlyStopping(
+            patience=5,
+            delta=0.001,
+            verbose=True,
+            save_path_pth= save_path_pth,
+            save_path_onnx=save_path_onnx,
+            dummy_input=dummy_input,
+            device=device
+        )
 
     for epoch in range(num_epochs):
         model.train()
@@ -210,6 +359,7 @@ def train_model(model, train_loader, val_loader, config, device):
         val_losses.append(epoch_val_loss)
         val_accuracy = correct / total
 
+        scheduler.step(epoch_val_loss)
         # Log validation loss first (if desired)
         wandb.log({'val_loss': epoch_val_loss, 'epoch': epoch})
         wandb.log({'val_accuracy': val_accuracy, 'epoch': epoch})
@@ -253,3 +403,14 @@ def train_model(model, train_loader, val_loader, config, device):
         # Log the loss curve to wandb.
         wandb.log({"loss_curve": wandb.Image(plt.gcf()), "epoch": epoch})
         plt.close()  # Close the current figure to free up memory.
+        early_stopping.step(epoch_val_loss, model)
+        if early_stopping.early_stop:
+            print(f"\nEarly stopping triggered at epoch {epoch+1}.")
+            break
+
+    save_model(model,
+           save_path_pth=save_path_pth,
+           save_path_onnx=save_path_pth,
+           dummy_input=dummy_input,
+           device=device,
+           verbose=True)

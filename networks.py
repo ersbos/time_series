@@ -131,29 +131,33 @@ class RCNN(nn.Module):
 
 
 class TimeSeriesCNN(nn.Module):
-    def __init__(self, num_inputs, num_classes):
+    def __init__(self, num_inputs, num_classes, dropout_rate=0.5):
         """
-        A deeper end-to-end convolutional classifier for time series.
+        A deeper end-to-end convolutional classifier for time series with dropout added
+        after each convolutional block.
 
-        Architecture (each block now has two convolutional layers):
-          - Block 1: 
+        Architecture (each block now has two convolutional layers with dropout applied after the block):
+          - Block 1:
               * Conv1d with 64 filters, kernel size=8, padding=4.
               * BatchNorm1d and ReLU.
               * An additional Conv1d with 64 filters, kernel size=8, padding=4, BatchNorm1d, and ReLU.
+              * Dropout.
           - Block 2:
               * Conv1d with 128 filters, kernel size=5, padding=2.
               * BatchNorm1d and ReLU.
               * An additional Conv1d with 128 filters, kernel size=5, padding=2, BatchNorm1d, and ReLU.
+              * Dropout.
           - Block 3:
               * Conv1d with 64 filters, kernel size=3, padding=1.
               * BatchNorm1d and ReLU.
               * An additional Conv1d with 64 filters, kernel size=3, padding=1, BatchNorm1d, and ReLU.
+              * Dropout.
           - Global average pooling over the time dimension.
           - Fully connected layer mapping 64 channels to num_classes.
         """
         super(TimeSeriesCNN, self).__init__()
 
-        # Block 1: two layers with 64 filters, keeping the same kernel and padding.
+        # Block 1: two layers with 64 filters.
         self.conv1a = nn.Conv1d(num_inputs, 64, kernel_size=8, padding=4)
         self.bn1a = nn.BatchNorm1d(64)
         self.conv1b = nn.Conv1d(64, 64, kernel_size=8, padding=4)
@@ -171,28 +175,35 @@ class TimeSeriesCNN(nn.Module):
         self.conv3b = nn.Conv1d(64, 64, kernel_size=3, padding=1)
         self.bn3b = nn.BatchNorm1d(64)
 
+        # Define dropout with the specified dropout_rate.
+        self.dropout = nn.Dropout(dropout_rate)
+
         self.global_pool = nn.AdaptiveAvgPool1d(1)
         self.fc = nn.Linear(64, num_classes)
 
     def forward(self, x):
-        # x shape: [batch, time_steps, features]
+        # Input x shape: [batch, time_steps, features]
         # Permute to [batch, features, time_steps] for Conv1d.
         x = x.permute(0, 2, 1)
 
         # Block 1
         x = F.relu(self.bn1a(self.conv1a(x)))
         x = F.relu(self.bn1b(self.conv1b(x)))
+        x = self.dropout(x)
 
         # Block 2
         x = F.relu(self.bn2a(self.conv2a(x)))
         x = F.relu(self.bn2b(self.conv2b(x)))
+        x = self.dropout(x)
 
         # Block 3
         x = F.relu(self.bn3a(self.conv3a(x)))
         x = F.relu(self.bn3b(self.conv3b(x)))
+        x = self.dropout(x)
 
-        x = self.global_pool(x)  # x now has shape [batch, 64, 1]
-        x = x.squeeze(2)         # shape becomes [batch, 64]
+        # Global average pooling and final FC layer.
+        x = self.global_pool(x)  # Shape becomes [batch, 64, 1]
+        x = x.squeeze(2)         # Shape becomes [batch, 64]
         return self.fc(x)
 
 

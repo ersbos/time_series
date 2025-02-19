@@ -9,7 +9,7 @@ model:
   type: "TCN"          # Choose "TCN" or "RCNN" or "TS_CNN"
   num_inputs: 1        # Single voltage channel.
   #For TCN
-  num_channels: [32, 64, 128]   # Number of channels for each convolutional block.    
+  num_channels: [32, 64, 128, 256, 512]   # Number of channels for each convolutional block.    
   dilation_base: 1.5
   # For RCNN:
   conv_channels: 16     # Number of channels for the initial convolution.
@@ -29,7 +29,12 @@ model:
 training:
   batch_size: 64
   lr: 0.001
-  epochs: 20
+  epochs: 40
+  undersample_noise: 1 # 1 for true and 0 for false
+  noise_sampling_ratio: 0.5
+
+saving:
+  path: "Train"
 
 wandb:                    
   api_key: "local-c667f1bae2f19ee022f2dbe2107db91a1865b96a"

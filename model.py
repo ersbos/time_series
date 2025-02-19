@@ -45,7 +45,8 @@ def get_model(config):
         # Our new time series CNN.
         num_inputs = config['model']['num_inputs']
         num_classes = config['model']['num_classes']
-        model = TimeSeriesCNN(num_inputs, num_classes)
+        dropout = config['model'].get('dropout', 0.2)
+        model = TimeSeriesCNN(num_inputs, num_classes,dropout)
     elif model_type == 'LSTM':
         num_inputs = config['model']['num_inputs']
         hidden_size = config['model'].get('hidden_size', 64)
