@@ -31,7 +31,7 @@ scaler = GradScaler()
 
 class SeismicDataset(Dataset):
     def __init__(self, data_dir, window_size, window_stride, transform=None,
-                 threshold_factor=3, noise_sigma=25.0,
+                 threshold_factor=3, noise_sigma=16.0,
                  undersample_noise=1, noise_sampling_ratio=1.0):
         """
         data_dir: Root folder with CSV files structured by person.
@@ -53,6 +53,7 @@ class SeismicDataset(Dataset):
             labeled with the person’s label (from 0 to num_persons-1),
             while all other windows will be labeled as noise (label = num_persons).
         """
+        # Get a list of CSV files.
         self.data_files = glob.glob(os.path.join(data_dir, '**', '*.csv'), recursive=True)
         self.window_size = window_size
         self.window_stride = window_stride
@@ -62,7 +63,19 @@ class SeismicDataset(Dataset):
         self.undersample_noise = undersample_noise
         self.noise_sampling_ratio = noise_sampling_ratio
 
-        # Get a sorted list of person classes from the folder names.
+        # Preload CSV files into memory.
+        # Store each file's signal data in a dictionary.
+        print("Cache operations has began...")
+        self.data_cache = {}
+        for file_path in self.data_files:
+            try:
+                data = pd.read_csv(file_path)
+                signal = data['voltage'].values.astype('float32')
+                self.data_cache[file_path] = signal
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+
+        # Get a sorted list of person classes using the folder names.
         self.class_names = sorted(list(set(os.path.basename(os.path.dirname(f)) for f in self.data_files)))
         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.class_names)}
         print("Detected person classes and indices:", self.class_to_idx)
@@ -74,15 +87,8 @@ class SeismicDataset(Dataset):
         self.segments = []  # List of tuples: (file_path, start_index)
         self.labels = []    # List of labels corresponding to each window
 
-        # Process each CSV file.
-        for file_path in self.data_files:
-            try:
-                data = pd.read_csv(file_path)
-                signal = data['voltage'].values.astype('float32')
-            except Exception as e:
-                print(f"Error reading {file_path}: {e}")
-                continue
-
+        # Process every cached CSV file.
+        for file_path, signal in self.data_cache.items():
             n_samples = len(signal)
             if n_samples < self.window_size:
                 continue
@@ -91,8 +97,7 @@ class SeismicDataset(Dataset):
             class_name = os.path.basename(os.path.dirname(file_path))
             person_label = self.class_to_idx[class_name]
 
-            # Run step detection (using the same window_size used for detection).
-            # detected_indices are the starting indices of windows in which a step was detected.
+            # Run step detection on the full signal.
             detected_indices = detect_step_events(signal,
                                                   window_size=self.window_size,
                                                   threshold_factor=self.threshold_factor,
@@ -104,8 +109,7 @@ class SeismicDataset(Dataset):
             for i in range(n_segments):
                 start = i * self.window_stride
                 self.segments.append((file_path, start))
-                # If the segment is one of the detected ones, assign the person label.
-                # Otherwise, assign the noise label.
+                # If the segment is among the detected ones, assign the person label.
                 if start in detected_set:
                     self.labels.append(person_label)
                 else:
@@ -136,21 +140,150 @@ class SeismicDataset(Dataset):
 
     def __getitem__(self, idx):
         file_path, start_index = self.segments[idx]
-        try:
-            data = pd.read_csv(file_path)
-            signal = data['voltage'].values.astype('float32')
-        except Exception as e:
-            raise RuntimeError(f"Error reading {file_path}: {e}")
-
+        # Retrieve the preloaded signal from the cache.
+        signal = self.data_cache[file_path]
         window_signal = signal[start_index: start_index + self.window_size]
+
         if self.transform:
             window_signal = self.transform(window_signal)
 
-        # Add the channel dimension as the last dimension.
-        window_signal = torch.tensor(window_signal).unsqueeze(-1)  # Shape: [window_length, 1]
+        # Convert the window signal into a torch tensor and add a channel dimension.
+        window_signal = torch.tensor(window_signal).unsqueeze(-1)  # Shape: [window_size, 1]
         label = self.labels[idx]
         return window_signal, label
+    
+class SeismicDatasetBasic(Dataset):
+    def __init__(self, data_dir, window_size, window_stride, transform=None):
+        """
+        data_dir: Root folder with CSV files structured by person.
+        window_size: The number of samples for each window segment.
+        window_stride: The step size between successive windows.
+        transform: Optional function to apply to each signal.
+        """
+        self.data_files = glob.glob(os.path.join(data_dir, '**', '*.csv'), recursive=True)
+        self.window_size = window_size
+        self.window_stride = window_stride
+        self.transform = transform
 
+        self.class_names = sorted(list(set(os.path.basename(os.path.dirname(f)) for f in self.data_files)))
+        self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.class_names)}
+        print("Detected classes and indices:", self.class_to_idx)
+
+        self.segments = []
+        # Precompute and store labels alongside segments.
+        self.labels = []  # this will hold the label for each window segment
+
+        for file_path in self.data_files:
+            try:
+                data = pd.read_csv(file_path)
+                signal = data['voltage'].values.astype('float32')
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+                continue
+
+            n_samples = len(signal)
+            if n_samples < self.window_size:
+                continue
+
+            n_segments = (n_samples - self.window_size) // self.window_stride + 1
+            # Get the label now, without reading the CSV each time.
+            class_name = os.path.basename(os.path.dirname(file_path))
+            label = self.class_to_idx[class_name]
+
+            for i in range(n_segments):
+                start = i * self.window_stride
+                self.segments.append((file_path, start))
+                self.labels.append(label)
+
+    def __len__(self):
+        return len(self.segments)
+
+    def __getitem__(self, idx):
+        file_path, start_index = self.segments[idx]
+        data = pd.read_csv(file_path)
+        signal = data['voltage'].values.astype('float32')
+        window_signal = signal[start_index: start_index + self.window_size]
+
+        if self.transform:
+            window_signal = self.transform(window_signal)
+
+        # Note: we don't need to recompute the label, use the precomputed one.
+        label = self.labels[idx]
+
+        window_signal = torch.tensor(window_signal).unsqueeze(1)
+        return window_signal, label
+
+class PreloadedSeismicDataset(Dataset):
+    def __init__(self, data_dir, window_size, window_stride, transform=None):
+        """
+        This dataset caches CSV file data in memory (CPU RAM) during initialization.
+        Then __getitem__ only works on already loaded arrays instead of reading from disk.
+
+        Args:
+            data_dir (str): Root folder with CSV files structured by person.
+            window_size (int): The number of samples in each window segment.
+            window_stride (int): The step size between successive windows.
+            transform (callable, optional): A function/transform to apply to each window.
+        """
+        self.data_files = glob.glob(os.path.join(data_dir, '**', '*.csv'), recursive=True)
+        self.window_size = window_size
+        self.window_stride = window_stride
+        self.transform = transform
+
+        # Preload all CSV files into a dict to cache them in RAM.
+        # Keys are file paths and values are the corresponding signal arrays (numpy arrays).
+        print("cache operations has began...")
+        self.data_cache = {}
+        for file_path in self.data_files:
+            try:
+                data = pd.read_csv(file_path)
+                signal = data['voltage'].values.astype('float32')
+                self.data_cache[file_path] = signal
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+
+        # Get sorted list of person classes from the folder names.
+        self.class_names = sorted(list(set(os.path.basename(os.path.dirname(f)) for f in self.data_files)))
+        self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.class_names)}
+        print("Detected classes and indices:", self.class_to_idx)
+
+        self.segments = []
+        self.labels = []  # precomputed labels
+
+        # Process each preloaded file.
+        for file_path, signal in self.data_cache.items():
+            n_samples = len(signal)
+            if n_samples < self.window_size:
+                continue
+
+            # Determine the label from parent folder.
+            class_name = os.path.basename(os.path.dirname(file_path))
+            label = self.class_to_idx[class_name]
+
+            # Create window segments for this file.
+            n_segments = (n_samples - self.window_size) // self.window_stride + 1
+            for i in range(n_segments):
+                start = i * self.window_stride
+                self.segments.append((file_path, start))
+                self.labels.append(label)
+
+    def __len__(self):
+        return len(self.segments)
+
+    def __getitem__(self, idx):
+        file_path, start_index = self.segments[idx]
+        # Retrieve the preloaded signal from the cache.
+        signal = self.data_cache[file_path]
+        window_signal = signal[start_index: start_index + self.window_size]
+
+        # Apply transformation if provided.
+        if self.transform:
+            window_signal = self.transform(window_signal)
+
+        # Convert to a tensor and add a channel dimension.
+        window_signal = torch.tensor(window_signal).unsqueeze(1)  # Shape: [window_size, 1]
+        label = self.labels[idx]
+        return window_signal, label
 
 class EarlyStopping:
     def __init__(self, patience=8, delta=0.001, verbose=False,
@@ -216,9 +349,12 @@ def get_dataloaders(config):
     undersample_noise =  config['training']['undersample_noise']
     noise_sampling_ratio =  config['training']['noise_sampling_ratio']
     number_of_workers = config['training']['number_of_workers']
+    '''
     dataset = SeismicDataset(data_dir, window_size, window_stride,
                              undersample_noise=undersample_noise,
                              noise_sampling_ratio=noise_sampling_ratio)
+    '''
+    dataset = PreloadedSeismicDataset(data_dir,window_size,window_stride)
     train_size = int(config['data_split'] * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])

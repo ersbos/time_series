@@ -42,7 +42,7 @@ def main():
         print('[WARNING] Wandb login failed. Continuing without wandb.')
     # Build model based on settings from config
     model = get_model(config).to(device)
-
+    print("Model:{}".format(model))
     # Get training and validation data loaders
     train_loader, val_loader = get_dataloaders(config)
 
