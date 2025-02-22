@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import torchaudio.transforms as audio
-
+import plotly.express as px
 # Replace with the path to your CSV file.
 csv_file = 'D:/Bitirme Projesi/main/new simulation(data ambient person)/time_series/data/person_eight/person_8_sensor_5_speed_1_amplification_3_trace_1_with_headers.csv'
 
@@ -41,7 +41,7 @@ plt.colorbar(label='Power (dB)')
 plt.show()
 # Add a column for row number (starting at 1)
 df['row_number'] = df.index + 1
-'''
+
 # Create a line plot using Plotly Express and include the row number in the hover data
 fig = px.line(df, x='timestamp', y='voltage', hover_data=['row_number'],
               title='Voltage Over Time (Timestamp in Seconds)')
@@ -52,5 +52,5 @@ fig.update_yaxes(title_text='Voltage')
 
 # Display the plot
 fig.show()
-'''
+
 # %%

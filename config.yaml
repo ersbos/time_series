@@ -2,8 +2,8 @@ project_name: "seismic_walking_classification"
 data_dir: "data"
 data_split: 0.8
 window:
-  size: 512       # Number of samples per segment window
-  stride: 256     # Step size between windows (allows overlap)
+  size: 5120       # Number of samples per segment window
+  stride: 2560     # Step size between windows (allows overlap)
 
 model:
   type: "TS_CNN"          # Choose "TCN" or "RCNN" or "TS_CNN" or "HybridTCN_LSTM"
@@ -18,7 +18,6 @@ model:
  
   rnn_hidden_size: 64
   num_rnn_layers: 1
-  num_classes: 11 # For example: 10 persons+ Noise
 
   #For HybridTCN_LSTM
   lstm_hidden_size: 128

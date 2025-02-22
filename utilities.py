@@ -441,6 +441,7 @@ def train_model(model, train_loader, val_loader, config, device):
 
     train_losses = []   # Initialize lists for tracking losses
     val_losses = []
+    val_accuracies = []
     num_inputs = num_inputs = config['model']['num_inputs']  # This should match the num_inputs used during model initialization.
     batch_size = config["training"]["batch_size"]
     time_steps = config["window"]["size"]
@@ -510,6 +511,7 @@ def train_model(model, train_loader, val_loader, config, device):
         epoch_val_loss = val_loss / len(val_loader.dataset)
         val_losses.append(epoch_val_loss)
         val_accuracy = correct / total
+        val_accuracies.append(val_accuracy)
 
         scheduler.step(epoch_val_loss)
         # Log validation loss first (if desired)
@@ -562,6 +564,24 @@ def train_model(model, train_loader, val_loader, config, device):
 
     save_model(model,
            base_save_path=base_save_path,
+           epoch=epoch,
            dummy_input=dummy_input,
            device=device,
            verbose=True)
+    
+    plt.figure(figsize=(8, 6))
+    plt.plot(range(1, len(val_accuracies) + 1), val_accuracies, marker='o', label='Validation Accuracy')
+    plt.xlabel("Epoch")
+    plt.ylabel("Validation Accuracy")
+    plt.title("Validation Accuracy Over Epochs")
+    plt.legend()
+    plt.tight_layout()
+
+    # Save the plot to the current WandB run directory.
+    #val_acc_save_path = os.path.join(wandb.run.dir, "val_accuracy.png")
+    #plt.savefig(val_acc_save_path)
+    #print(f"Validation accuracy plot saved to {val_acc_save_path}")
+
+    # Optionally, log the image to WandB.
+    wandb.log({"final_val_accuracy_plot": wandb.Image(plt.gcf())})
+    plt.close()
