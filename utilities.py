@@ -1,6 +1,7 @@
 import torch
 import torch.onnx
 import os
+import yaml
 import glob
 import pandas as pd
 import torch
@@ -439,6 +440,11 @@ def train_model(model, train_loader, val_loader, config, device):
     num_epochs = config['training']['epochs']
     base_save_path = config['saving']['path']
 
+    config_save_path = os.path.join(wandb.run.dir,"config.txt")
+    with open(config_save_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False)
+    
+    
     train_losses = []   # Initialize lists for tracking losses
     val_losses = []
     val_accuracies = []
@@ -578,8 +584,8 @@ def train_model(model, train_loader, val_loader, config, device):
     plt.tight_layout()
 
     # Save the plot to the current WandB run directory.
-    #val_acc_save_path = os.path.join(wandb.run.dir, "val_accuracy.png")
-    #plt.savefig(val_acc_save_path)
+    val_acc_save_path = os.path.join(wandb.run.dir, "val_accuracy.png")
+    plt.savefig(val_acc_save_path)
     #print(f"Validation accuracy plot saved to {val_acc_save_path}")
 
     # Optionally, log the image to WandB.

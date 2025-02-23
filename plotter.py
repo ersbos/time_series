@@ -5,22 +5,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torchaudio.transforms as audio
 import plotly.express as px
-# Replace with the path to your CSV file.
-csv_file = 'D:/Bitirme Projesi/main/new simulation(data ambient person)/time_series/data/person_eight/person_8_sensor_5_speed_1_amplification_3_trace_1_with_headers.csv'
 
-# Read the CSV file into a DataFrame.
+csv_file = 'D:/Bitirme Projesi/main/new simulation(data ambient person)/time_series/data/person_eight/person_8_sensor_1_speed_1_amplification_1_trace_1_with_headers.csv'
+
+
 df = pd.read_csv(csv_file)
 
-# Ensure you have a 'voltage' column.
+
 voltage = df['voltage'].values
 
-# Convert the voltage series to a torch tensor (float type) and adjust shape.
-# The Spectrogram transform expects an input with shape: (channels, time).
+
 signal = torch.tensor(voltage).float().unsqueeze(0)  # shape becomes (1, time)
 
 # Instantiate the spectrogram transform with specified parameters.
-transform = audio.Spectrogram(n_fft=4096, win_length=200, hop_length=128)
-mel_transform = audio.MelSpectrogram(1000,4096,200,128,0,500,128)
+transform = audio.Spectrogram(n_fft=2048, win_length=500, hop_length=128)
+mel_transform = audio.MelSpectrogram(1000,2048,200,128,0,500,128)
 # Compute the spectrogram.
 spectrogram = transform(signal)
 mel_spectrogram = mel_transform(signal)

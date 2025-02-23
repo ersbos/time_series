@@ -1,0 +1,14 @@
+{"time":"2025-02-22T23:35:24.9302322+03:00","level":"INFO","msg":"stream: starting","core version":"0.19.5","symlink path":"D:\\Bitirme Projesi\\main\\new simulation(data ambient person)\\time_series\\wandb\\offline-run-20250222_233523-q9k33rft\\logs\\debug-core.log"}
+{"time":"2025-02-22T23:35:25.5162745+03:00","level":"INFO","msg":"created new stream","id":"q9k33rft"}
+{"time":"2025-02-22T23:35:25.5168148+03:00","level":"INFO","msg":"stream: started","id":"q9k33rft"}
+{"time":"2025-02-22T23:35:25.5168148+03:00","level":"INFO","msg":"sender: started","stream_id":"q9k33rft"}
+{"time":"2025-02-22T23:35:25.5168148+03:00","level":"INFO","msg":"handler: started","stream_id":"q9k33rft"}
+{"time":"2025-02-22T23:35:25.5168148+03:00","level":"INFO","msg":"writer: Do: started","stream_id":"q9k33rft"}
+{"time":"2025-02-22T23:35:25.5258415+03:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-02-23T04:04:02.3608023+03:00","level":"INFO","msg":"stream: closing","id":"q9k33rft"}
+{"time":"2025-02-23T04:04:02.3816527+03:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-02-23T04:04:02.4151475+03:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-02-23T04:04:02.479476+03:00","level":"INFO","msg":"handler: closed","stream_id":"q9k33rft"}
+{"time":"2025-02-23T04:04:02.4794991+03:00","level":"INFO","msg":"writer: Close: closed","stream_id":"q9k33rft"}
+{"time":"2025-02-23T04:04:02.4794991+03:00","level":"INFO","msg":"sender: closed","stream_id":"q9k33rft"}
+{"time":"2025-02-23T04:04:02.5027219+03:00","level":"INFO","msg":"stream: closed","id":"q9k33rft"}
