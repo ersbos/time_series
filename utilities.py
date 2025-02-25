@@ -231,9 +231,7 @@ class PreloadedSeismicDataset(Dataset):
         self.window_stride = window_stride
         self.transform = transform
 
-        # Preload all CSV files into a dict to cache them in RAM.
-        # Keys are file paths and values are the corresponding signal arrays (numpy arrays).
-        print("cache operations has began...")
+        print("Cache operations have begun...")
         self.data_cache = {}
         for file_path in self.data_files:
             try:
@@ -248,25 +246,47 @@ class PreloadedSeismicDataset(Dataset):
         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.class_names)}
         print("Detected classes and indices:", self.class_to_idx)
 
+       
         self.segments = []
         self.labels = []  # precomputed labels
 
         # Process each preloaded file.
         for file_path, signal in self.data_cache.items():
             n_samples = len(signal)
-            if n_samples < self.window_size:
-                continue
-
             # Determine the label from parent folder.
             class_name = os.path.basename(os.path.dirname(file_path))
             label = self.class_to_idx[class_name]
 
-            # Create window segments for this file.
-            n_segments = (n_samples - self.window_size) // self.window_stride + 1
-            for i in range(n_segments):
-                start = i * self.window_stride
-                self.segments.append((file_path, start))
+            if n_samples < self.window_size and n_samples > self.window_stride:
+                # For signals shorter than window_size, add one segment starting at index 0.
+                self.segments.append((file_path, 0))
                 self.labels.append(label)
+            elif n_samples< self.window_stride:
+                continue
+            else:
+                # Create complete window segments.
+                n_segments = (n_samples - self.window_size) // self.window_stride + 1
+                for i in range(n_segments):
+                    start = i * self.window_stride
+                    self.segments.append((file_path, start))
+                    self.labels.append(label)
+
+                # Optionally, add a final segment covering the tail of the signal if it doesn't exactly align.
+                last_possible_start = n_samples - self.window_size
+                if n_segments == 0 or (self.segments and last_possible_start > self.segments[-1][1]):
+                    self.segments.append((file_path, last_possible_start))
+                    self.labels.append(label)
+
+        # Count the number of windows (segments) for each label.
+        window_counts = {}
+        for label in self.labels:
+            window_counts[label] = window_counts.get(label, 0) + 1
+
+        print("Window counts per label:")
+        for label, count in window_counts.items():
+            # Get the corresponding class name.
+            class_name = self.class_names[label] if label < len(self.class_names) else "Unknown"
+            print(f"Label {label} ({class_name}): {count}")
 
     def __len__(self):
         return len(self.segments)
@@ -277,7 +297,20 @@ class PreloadedSeismicDataset(Dataset):
         signal = self.data_cache[file_path]
         window_signal = signal[start_index: start_index + self.window_size]
 
-        # Apply transformation if provided.
+        # If the window is smaller than window_size, pad it with the mean of what was extracted.
+        if len(window_signal) < self.window_size:
+            orig_length = len(window_signal)
+            if orig_length > 0:
+                mean_val = window_signal.mean()
+            else:
+                mean_val = 0.0
+            pad_length = self.window_size - orig_length
+            pad_values = np.full(pad_length, mean_val, dtype=window_signal.dtype)
+            window_signal = np.concatenate([window_signal, pad_values])
+            # Print the index and details of the padded window.
+            print(f"Padded window at index {idx} (file: {file_path}, start_index: {start_index}): "
+                  f"original length {orig_length}, padded with {pad_length} values (mean: {mean_val}).")
+
         if self.transform:
             window_signal = self.transform(window_signal)
 
@@ -341,30 +374,30 @@ class EarlyStopping:
             save_model(model, self.base_save_path, epoch, self.dummy_input, self.device, self.verbose)
 
 def get_dataloaders(config):
-    from torch.utils.data import random_split
-    data_dir = config['data_dir']
+    """
+    Create train and validation DataLoaders using separate directories for training and
+    validation data. The configuration dictionary should now include:
+      - 'train_data_dir': directory containing training CSV files.
+      - 'val_data_dir': directory containing validation CSV files.
+      - 'window': a dictionary containing 'size' and 'stride' for window segmentation.
+      - 'training': a dictionary containing 'batch_size' and 'number_of_workers' for DataLoader.
+    """
+    train_data_dir = config['train_data_dir']
+    val_data_dir = config['val_data_dir']
     window_size = config['window']['size']
     window_stride = config['window']['stride']
-
-    # Pass the undersampling parameters from config if they exist.
-    undersample_noise =  config['training']['undersample_noise']
-    noise_sampling_ratio =  config['training']['noise_sampling_ratio']
     number_of_workers = config['training']['number_of_workers']
-    '''
-    dataset = SeismicDataset(data_dir, window_size, window_stride,
-                             undersample_noise=undersample_noise,
-                             noise_sampling_ratio=noise_sampling_ratio)
-    '''
-    dataset = PreloadedSeismicDataset(data_dir,window_size,window_stride)
-    train_size = int(config['data_split'] * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
+    # Create separate datasets for training and validation.
+    train_dataset = PreloadedSeismicDataset(train_data_dir, window_size, window_stride)
+    val_dataset = PreloadedSeismicDataset(val_data_dir, window_size, window_stride)
+
+    # Create DataLoaders for train and validation datasets.
     train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
                               shuffle=True, num_workers=number_of_workers, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
                             shuffle=False, num_workers=number_of_workers, pin_memory=True)
-    print("Dataloader is finished!")
+    print("DataLoaders are finished!")
     return train_loader, val_loader
 
 
@@ -421,8 +454,11 @@ def save_model(model, base_save_path, epoch, dummy_input=None, device="cpu", ver
 
 def train_model(model, train_loader, val_loader, config, device):
     # Compute class weights to address imbalance.
-    train_indices = train_loader.dataset.indices
-    all_labels = [train_loader.dataset.dataset.labels[i] for i in train_indices]
+    if hasattr(train_loader.dataset, 'indices'):
+        indices = train_loader.dataset.indices
+        all_labels = [train_loader.dataset.dataset.labels[i] for i in indices]
+    else:
+        all_labels = train_loader.dataset.labels
 
     counts = Counter(all_labels)
     max_count = max(counts.values())
@@ -467,7 +503,7 @@ def train_model(model, train_loader, val_loader, config, device):
 
     for epoch in range(num_epochs):
         model.train()
-        running_loss = 0.0
+        running_loss, correct_train, total_train = 0.0, 0, 0
         total_batches = len(train_loader)
 
         for batch_idx, (inputs, labels) in enumerate(train_loader):
@@ -483,60 +519,64 @@ def train_model(model, train_loader, val_loader, config, device):
 
             running_loss += loss.item() * inputs.size(0)
             _, predicted = torch.max(outputs.data, 1)
-            batch_acc = (predicted == labels).float().mean().item()
+            correct_train += (predicted == labels).sum().item()
+            total_train += labels.size(0)
             sys.stdout.write(
                 f'\rEpoch [{epoch+1}/{num_epochs}] Batch [{batch_idx+1}/{total_batches}] '
-                f'Loss: {loss.item():.4f} Batch Acc: {batch_acc*100:.2f}%'
+                f'Loss: {loss.item():.4f} Train Acc: {100 * correct_train / total_train:.2f}%'
             )
             sys.stdout.flush()
 
         epoch_train_loss = running_loss / len(train_loader.dataset)
+        epoch_train_acc = correct_train / total_train
         train_losses.append(epoch_train_loss)
-        wandb.log({'train_loss': epoch_train_loss, 'epoch': epoch})
+        wandb.log({'train_loss': epoch_train_loss, 'train_accuracy': epoch_train_acc, 'epoch': epoch})
 
         model.eval()
-        correct = 0
-        total = 0
-        val_loss = 0.0
-        y_preds = []
-        y_trues = []
+        correct_val, total_val, val_loss = 0, 0, 0.0
+        y_preds, y_trues = [], []
 
         with torch.no_grad():
             with autocast():
-                for inputs, labels in val_loader:
+                 for inputs, labels in val_loader:
                     inputs, labels = inputs.to(device), labels.to(device)
                     outputs = model(inputs)
                     batch_loss = criterion(outputs, labels)
                     val_loss += batch_loss.item() * inputs.size(0)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += labels.size(0)
-                    correct += (predicted == labels).sum().item()
+                    _, predicted = torch.max(outputs, 1)
+                    correct_val += (predicted == labels).sum().item()
+                    total_val += labels.size(0)
                     y_preds.extend(predicted.cpu().numpy())
                     y_trues.extend(labels.cpu().numpy())
 
         epoch_val_loss = val_loss / len(val_loader.dataset)
+        epoch_val_acc = correct_val / total_val
         val_losses.append(epoch_val_loss)
-        val_accuracy = correct / total
-        val_accuracies.append(val_accuracy)
+        val_accuracies.append(epoch_val_acc)
 
         scheduler.step(epoch_val_loss)
         # Log validation loss first (if desired)
         wandb.log({'val_loss': epoch_val_loss, 'epoch': epoch})
-        wandb.log({'val_accuracy': val_accuracy, 'epoch': epoch})
+        wandb.log({'val_accuracy': epoch_val_acc, 'epoch': epoch})
 
         print(f"\nEpoch {epoch+1}/{num_epochs} finished: "
-              f"Train Loss: {epoch_train_loss:.4f}, Val Loss: {epoch_val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
+              f"Train Loss: {epoch_train_loss:.4f}, Val Loss: {epoch_val_loss:.4f}, Val Accuracy: {epoch_val_acc:.4f}")
 
         # Compute the confusion matrix.
         cm = confusion_matrix(y_trues, y_preds)
         # Normalize the confusion matrix by row (true classes).
         cm_norm = cm.astype('float') / (cm.sum(axis=1)[:, np.newaxis] + 1e-8)
 
-        # Get class names from the dataset if available.
-        if hasattr(train_loader.dataset.dataset, "class_names"):
-            class_names = train_loader.dataset.dataset.class_names + ['noise']
+        
+        if hasattr(train_loader.dataset, 'dataset'):
+            base_dataset = train_loader.dataset.dataset
         else:
-            class_names = [str(i) for i in range(num_classes)] + ['noise']
+            base_dataset = train_loader.dataset
+
+        if hasattr(base_dataset, "class_names"):
+            class_names = base_dataset.class_names 
+        else:
+            class_names = [str(i) for i in range(num_classes)] 
 
         # Plot the normalized confusion matrix.
         fig, ax = plt.subplots(figsize=(8, 6))

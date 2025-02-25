@@ -1,5 +1,6 @@
 project_name: "seismic_walking_classification"
-data_dir: "data"
+train_data_dir: "data/train"
+val_data_dir: "data/val"
 data_split: 0.8
 window:
   size: 5120       # Number of samples per segment window
