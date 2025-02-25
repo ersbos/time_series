@@ -1,23 +1,34 @@
 project_name: "seismic_walking_classification"
-data_dir: "data"
+train_data_dir: "data/train"
+val_data_dir: "data/val"
 data_split: 0.8
 window:
-  size: 512       # Number of samples per segment window
-  stride: 256     # Step size between windows (allows overlap)
+  size: 5120       # Number of samples per segment window
+  stride: 2560     # Step size between windows (allows overlap)
 
 model:
-  type: "TS_CNN"          # Choose "TCN" or "RCNN" or "TS_CNN"
-  num_inputs: 1        # Single voltage channel.
+  type: "TS_CNN"          # Choose "TCN" or "RCNN" or "TS_CNN" or "HybridTCN_LSTM"
+  num_inputs: 1           # Single voltage channel.
+
   #For TCN
-  num_channels: [32, 64, 128]   # Number of channels for each convolutional block.    
+  num_channels: [32, 64, 128, 256, 512]   # Number of channels for each convolutional block.    
   dilation_base: 1.5
+  
   # For RCNN:
   conv_channels: 16     # Number of channels for the initial convolution.
-  kernel_size: 3
-  dropout: 0.3
+ 
   rnn_hidden_size: 64
   num_rnn_layers: 1
-  num_classes: 10 # For example: 10 persons
+
+  #For HybridTCN_LSTM
+  lstm_hidden_size: 128
+  lstm_num_layers: 1
+  #Common
+  dropout: 0.3
+  num_classes: 10 # For example: 10 persons+ Noise
+  kernel_size: 3
+
+  
   #type: LSTM
   #num_inputs: 1
   #hidden_size: 64
@@ -29,11 +40,23 @@ model:
 training:
   batch_size: 64
   lr: 0.001
-  epochs: 20
+  epochs: 70
+  number_of_workers: 6
+  undersample_noise: 1 # 1 for true and 0 for false
+  noise_sampling_ratio: 0.7 # Ratio for sampling noise 1.0 means that the other_class_instances = noise_instances
+  factor: 0.5 # Learning rate decreasing parameter
+  patience: 5 # epoch number to wait
+
+early_stopping:
+  patience: 10 # Epoch number to wait
+  delta: 0.001 # val loss to decrease
+
+saving:
+  path: "Train"
 
 wandb:                    
   api_key: "local-c667f1bae2f19ee022f2dbe2107db91a1865b96a"
   project: "bitirme_time_series"
   host: http://192.168.21.122:8000//
   entity: ""  # Optional: your username or team name on wandb
-  note: "This run is for testing time series TCN model."
+  note: "This run is for testing time series TCN with new labeling model."

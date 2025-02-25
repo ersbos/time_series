@@ -34,7 +34,7 @@ def detect_step_events(signal_data, window_size=512, threshold_factor=3, noise_s
     mean_energy = noise_sigma ** 2
     std_energy = noise_sigma ** 2 * np.sqrt(2 / window_size)
     threshold = mean_energy + threshold_factor * std_energy
-    print(f"Using noise model: mean_energy = {mean_energy:.4f}, std_energy = {std_energy:.4f}, threshold = {threshold:.4f}")
+    #print(f"Using noise model: mean_energy = {mean_energy:.4f}, std_energy = {std_energy:.4f}, threshold = {threshold:.4f}")
 
     # If a window's energy exceeds the threshold, record the starting index of that window.
     for i, energy in enumerate(windowed_energy):
@@ -111,7 +111,7 @@ def plot_labeled_windows(signal_data, labeled_windows, window_size, title="Label
 
 if __name__ == "__main__":
     # Directory containing CSV files
-    data_folder = os.path.join("data", "person_two")
+    data_folder = os.path.join("data", "person_five")
     csv_files = glob.glob(os.path.join(data_folder, "*.csv"))
 
     if not csv_files:
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     # Parameters for step detection
     window_size = 512         # Adjust based on expected step window
     threshold_factor = 3      # +3 standard deviations in the noise model
-    noise_sigma = 25.0         # Set as appropriate for your sensor
+    noise_sigma = 16.0         # Set as appropriate for your sensor
 
     detected_windows = detect_step_events(signal, window_size=window_size,
                                           threshold_factor=threshold_factor,

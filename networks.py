@@ -87,6 +87,63 @@ class TCN(nn.Module):
         # Global average pooling over the temporal dimension.
         y = torch.mean(y, dim=2)
         return self.fc(y)
+
+
+class HybridTCN_LSTM(nn.Module):
+    def __init__(self, num_inputs, num_channels, kernel_size=3, dropout=0.2,
+                 num_classes=10, lstm_hidden_size=128, lstm_num_layers=1, dilation_base=1.5):
+        """
+        num_inputs: Number of input features per time step.
+        num_channels: List of output channels for each Temporal Block.
+        kernel_size: Convolution kernel size.
+        dropout: Dropout rate.
+        num_classes: Number of output classes.
+        lstm_hidden_size: Hidden size for the LSTM.
+        lstm_num_layers: Number of LSTM layers.
+        dilation_base: Base for computing dilation factors.
+
+        Note: The module accepts an input tensor of shape [batch, time_steps, features]
+        to maintain compatibility with your data loaders. Internally, it permutes
+        to the shape [batch, features, time_steps] needed for the TCN layers.
+        """
+        super(HybridTCN_LSTM, self).__init__()
+
+        # Build the TCN feature extractor.
+        tcn_layers = []
+        num_levels = len(num_channels)
+        for i in range(num_levels):
+            dilation = int(dilation_base ** i)
+            in_channels = num_inputs if i == 0 else num_channels[i - 1]
+            out_channels = num_channels[i]
+            padding = (kernel_size - 1) * dilation
+            tcn_layers.append(
+                TemporalBlock(in_channels, out_channels, kernel_size,
+                              stride=1, dilation=dilation, padding=padding, dropout=dropout)
+            )
+        self.tcn_net = nn.Sequential(*tcn_layers)
+
+        # LSTM takes feature sequences; its input size matches TCN's final output channels.
+        self.lstm = nn.LSTM(input_size=num_channels[-1], hidden_size=lstm_hidden_size,
+                            num_layers=lstm_num_layers, batch_first=True)
+
+        # Fully connected layer for classification.
+        self.fc = nn.Linear(lstm_hidden_size, num_classes)
+
+    def forward(self, x):
+        # Input x has shape [batch, time_steps, features] as expected by your loaders.
+        # Permute to [batch, features, time_steps] for the TCN.
+        tcn_input = x.permute(0, 2, 1)
+        tcn_out = self.tcn_net(tcn_input)
+        # Permute back to [batch, time_steps, features] so the LSTM receives proper sequence ordering.
+        lstm_input = tcn_out.permute(0, 2, 1)
+        # Process through the LSTM.
+        lstm_out, (h_n, _) = self.lstm(lstm_input)
+        # Use the hidden state from the last LSTM layer as a summary representation.
+        final_hidden = h_n[-1]
+        return self.fc(final_hidden)
+
+
+
 class RCNN(nn.Module):
     def __init__(self, num_inputs, conv_channels, kernel_size=3, dropout=0.2, rnn_hidden_size=64,
                  num_rnn_layers=1, num_classes=2):
@@ -131,39 +188,92 @@ class RCNN(nn.Module):
 
 
 class TimeSeriesCNN(nn.Module):
-    def __init__(self, num_inputs, num_classes):
+    def __init__(self, num_inputs, num_classes, dropout_rate=0.5):
         """
-        A simple end-to-end convolutional classifier for time series.
+        A deeper end-to-end convolutional classifier for time series with an additional block and dropout.
 
         Architecture:
-          - Conv1d with 64 filters, kernel size=8, padding=4 (to help preserve time dimension).
-          - BatchNorm1d and ReLU.
-          - Conv1d with 128 filters, kernel size=5, padding=2.
-          - BatchNorm1d and ReLU.
-          - Conv1d with 64 filters, kernel size=3, padding=1.
-          - BatchNorm1d and ReLU.
+          - Block 1:
+              * Conv1d with 64 filters, kernel size=8, padding=4.
+              * BatchNorm1d, ReLU.
+              * Another Conv1d with 64 filters, kernel size=8, padding=4, BatchNorm1d, ReLU.
+              * Dropout.
+          - Block 2:
+              * Conv1d with 128 filters, kernel size=5, padding=2.
+              * BatchNorm1d, ReLU.
+              * Another Conv1d with 128 filters, kernel size=5, padding=2, BatchNorm1d, ReLU.
+              * Dropout.
+          - Block 3:
+              * Conv1d with 64 filters, kernel size=3, padding=1.
+              * BatchNorm1d, ReLU.
+              * Another Conv1d with 64 filters, kernel size=3, padding=1, BatchNorm1d, ReLU.
+              * Dropout.
+          - Block 4 (new):
+              * Conv1d with 64 filters, kernel size=3, padding=1.
+              * BatchNorm1d, ReLU.
+              * Another Conv1d with 64 filters, kernel size=3, padding=1, BatchNorm1d, ReLU.
+              * Dropout.
           - Global average pooling over the time dimension.
           - Fully connected layer mapping 64 channels to num_classes.
         """
         super(TimeSeriesCNN, self).__init__()
-        self.conv1 = nn.Conv1d(num_inputs, 64, kernel_size=8, padding=4)
-        self.bn1 = nn.BatchNorm1d(64)
-        self.conv2 = nn.Conv1d(64, 128, kernel_size=5, padding=2)
-        self.bn2 = nn.BatchNorm1d(128)
-        self.conv3 = nn.Conv1d(128, 64, kernel_size=3, padding=1)
-        self.bn3 = nn.BatchNorm1d(64)
+
+        # Block 1
+        self.conv1a = nn.Conv1d(num_inputs, 64, kernel_size=8, padding=4)
+        self.bn1a = nn.BatchNorm1d(64)
+        self.conv1b = nn.Conv1d(64, 64, kernel_size=8, padding=4)
+        self.bn1b = nn.BatchNorm1d(64)
+
+        # Block 2
+        self.conv2a = nn.Conv1d(64, 128, kernel_size=5, padding=2)
+        self.bn2a = nn.BatchNorm1d(128)
+        self.conv2b = nn.Conv1d(128, 128, kernel_size=5, padding=2)
+        self.bn2b = nn.BatchNorm1d(128)
+
+        # Block 3
+        self.conv3a = nn.Conv1d(128, 64, kernel_size=3, padding=1)
+        self.bn3a = nn.BatchNorm1d(64)
+        self.conv3b = nn.Conv1d(64, 64, kernel_size=3, padding=1)
+        self.bn3b = nn.BatchNorm1d(64)
+
+        # Block 4 (Additional deeper block)
+        self.conv4a = nn.Conv1d(64, 64, kernel_size=3, padding=1)
+        self.bn4a = nn.BatchNorm1d(64)
+        self.conv4b = nn.Conv1d(64, 64, kernel_size=3, padding=1)
+        self.bn4b = nn.BatchNorm1d(64)
+
+        self.dropout = nn.Dropout(dropout_rate)
         self.global_pool = nn.AdaptiveAvgPool1d(1)
         self.fc = nn.Linear(64, num_classes)
 
     def forward(self, x):
-        # Expect input x shape: [batch, time_steps, features]
-        # For univariate time series, features==1.
-        x = x.permute(0, 2, 1)  # convert to [batch, features, time_steps]
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = self.global_pool(x)  # shape [batch, 64, 1]
-        x = x.squeeze(2)         # shape [batch, 64]
+        # Input x shape: [batch, time_steps, features]
+        # Permute to [batch, features, time_steps] for Conv1d.
+        x = x.permute(0, 2, 1)
+
+        # Block 1
+        x = F.relu(self.bn1a(self.conv1a(x)))
+        x = F.relu(self.bn1b(self.conv1b(x)))
+        x = self.dropout(x)
+
+        # Block 2
+        x = F.relu(self.bn2a(self.conv2a(x)))
+        x = F.relu(self.bn2b(self.conv2b(x)))
+        x = self.dropout(x)
+
+        # Block 3
+        x = F.relu(self.bn3a(self.conv3a(x)))
+        x = F.relu(self.bn3b(self.conv3b(x)))
+        x = self.dropout(x)
+
+        # Block 4 (New deeper block)
+        x = F.relu(self.bn4a(self.conv4a(x)))
+        x = F.relu(self.bn4b(self.conv4b(x)))
+        x = self.dropout(x)
+
+        # Global average pooling and final FC layer.
+        x = self.global_pool(x)  # Shape becomes [batch, 64, 1]
+        x = x.squeeze(2)         # Shape becomes [batch, 64]
         return self.fc(x)
 
 
